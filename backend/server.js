@@ -212,12 +212,12 @@ app.delete("/auth/customer/:id", async (req, res) => {
 /* ================= UPDATE CUSTOMER ================= */
 app.patch("/auth/customer/:id", async (req, res) => {
   const { id } = req.params;
-  const { name,  phone } = req.body;
+  const { name,status,  phone } = req.body;
 
   try {
     await db.query(
-      "UPDATE users SET name=?,  phone=? WHERE id=?",
-      [name,  phone, id]
+      "UPDATE users SET name=?,status=?,  phone=? WHERE id=?",
+      [name, status, phone, id]
     );
 
     res.json({ message: "Customer updated successfully" });
