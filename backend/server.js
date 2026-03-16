@@ -173,26 +173,26 @@ app.post("/auth/login", async (req, res) => {
     return res.status(400).json({ error: "All fields required" });
 
   try {
-    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
-      email,
-    ]);
-
+    // 1. Check if user exists
+    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
     if (rows.length === 0)
       return res.status(400).json({ error: "User not found" });
 
     const user = rows[0];
 
+    // 2. Verify password
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch)
       return res.status(400).json({ error: "Invalid password" });
 
+    // 3. Generate JWT token including role
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, type: user.type }, // type is the role
       process.env.JWT_SECRET || "your_secret_key",
       { expiresIn: "1d" }
     );
 
+    // 4. Set cookie for authentication
     res.cookie("token", token, {
       httpOnly: true,
       secure: false,
@@ -200,11 +200,17 @@ app.post("/auth/login", async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000,
     });
 
+    // 5. Return user info including role to frontend
     res.json({
       message: "Login successful",
-      email: user.email,
-      phone: user.phone,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.type 
+      }
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
