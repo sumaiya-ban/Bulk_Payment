@@ -53,27 +53,21 @@ const initDatabase = async () => {
     console.log("Receivers table ready");
      await db.query(`
       CREATE TABLE IF NOT EXISTS transactions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-
-    customer_id INT NULL,
-    receiver_id INT NULL,
-
-    amount DECIMAL(10,2) NOT NULL,
-
-    tnx_id VARCHAR(100) NULL,
-
-    tnx_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    status ENUM('pending','success','failed') DEFAULT 'pending',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (receiver_id) REFERENCES receivers(id) ON DELETE SET NULL
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id INT NULL,
+  receiver_id INT NULL,
+  account_type ENUM('bkash','nagad','rocket') NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  tnx_id VARCHAR(100) NULL,
+  tnx_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status ENUM('pending','success','failed') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
     `);
 
     console.log("Transactions table ready");
+   await db.query(`ALTER TABLE transactions 
+ADD COLUMN account_type ENUM('bkash','nagad','rocket') NOT NULL;`) 
   
   }
    catch (err) {
@@ -360,7 +354,16 @@ app.delete("/auth/receiver/:id", async (req, res) => {
 });
 app.get("/auth/transactions", async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM transactions ORDER BY id DESC");
+    const [rows] = await db.query(`
+  SELECT 
+    t.*,
+    u.name AS customer_name,
+    r.name AS receiver_name
+  FROM transactions t
+  LEFT JOIN users u ON t.customer_id = u.id
+  LEFT JOIN receivers r ON t.receiver_id = r.id
+  ORDER BY t.id DESC
+`);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -376,22 +379,55 @@ app.post("/auth/transaction", async (req, res) => {
   }
 
   try {
-    const tnx_id = "TNX" + Date.now();
-
-    // Convert IDs to numbers
+    // Convert IDs
     customer_id = parseInt(customer_id);
     receiver_id = parseInt(receiver_id);
 
     const [result] = await db.query(
       `INSERT INTO transactions 
-       (customer_id, receiver_id, account_type, amount, tnx_id, status, tnx_time)
+       (customer_id, receiver_id, account_type, amount, status, tnx_time, tnx_id)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [customer_id, receiver_id, account_type, amount, tnx_id, "pending", new Date()]
+      [
+        customer_id,
+        receiver_id,
+        account_type,
+        amount,
+        "pending",     // default status
+        new Date(),
+        null           // ❗ tnx_id NULL when pending
+      ]
     );
 
     res.json({ message: "Transaction created successfully", id: result.insertId });
+
   } catch (err) {
     console.error("Transaction creation error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+app.patch("/auth/transaction/:id", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    let tnx_id = null;
+
+    // ✅ Only generate when success
+    if (status === "success") {
+      tnx_id = "TNX" + Date.now();
+    }
+
+    await db.query(
+      `UPDATE transactions 
+       SET status = ?, tnx_id = ?
+       WHERE id = ?`,
+      [status, tnx_id, id]
+    );
+
+    res.json({ message: "Transaction updated successfully" });
+
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
