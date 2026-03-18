@@ -60,7 +60,7 @@ const initDatabase = async () => {
   amount DECIMAL(10,2) NOT NULL,
   tnx_id VARCHAR(100) NULL,
   tnx_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  status ENUM('pending','success','failed') DEFAULT 'pending',
+  status ENUM('pending','send','failed') DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
     `);
@@ -358,7 +358,8 @@ app.get("/auth/transactions", async (req, res) => {
   SELECT 
     t.*,
     u.name AS customer_name,
-    r.name AS receiver_name
+    r.name AS receiver_name,
+    r.number AS receiver_number
   FROM transactions t
   LEFT JOIN users u ON t.customer_id = u.id
   LEFT JOIN receivers r ON t.receiver_id = r.id
@@ -370,40 +371,26 @@ app.get("/auth/transactions", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 /* ================= CREATE TRANSACTION ================= */
-app.post("/auth/transaction", async (req, res) => {
-  let { customer_id, receiver_id, account_type, amount } = req.body;
+/* ================= CREATE TRANSACTION ================= */
+app.get("/auth/transactions/:userId", async (req, res) => {
+  const { userId } = req.params;
 
-  if (!customer_id || !receiver_id || !account_type || !amount) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
+  const [rows] = await db.query(`
+    SELECT 
+      t.*,
+      u.name AS customer_name,
+      r.name AS receiver_name,
+      r.number AS receiver_number
+    FROM transactions t
+    LEFT JOIN users u ON t.customer_id = u.id
+    LEFT JOIN receivers r ON t.receiver_id = r.id
+    WHERE t.customer_id = ?
+    ORDER BY t.id DESC
+  `, [userId]);
 
-  try {
-    // Convert IDs
-    customer_id = parseInt(customer_id);
-    receiver_id = parseInt(receiver_id);
-
-    const [result] = await db.query(
-      `INSERT INTO transactions 
-       (customer_id, receiver_id, account_type, amount, status, tnx_time, tnx_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        customer_id,
-        receiver_id,
-        account_type,
-        amount,
-        "pending",     // default status
-        new Date(),
-        null           // ❗ tnx_id NULL when pending
-      ]
-    );
-
-    res.json({ message: "Transaction created successfully", id: result.insertId });
-
-  } catch (err) {
-    console.error("Transaction creation error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
+  res.json(rows);
 });
 app.patch("/auth/transaction/:id", async (req, res) => {
   const { id } = req.params;
@@ -413,7 +400,7 @@ app.patch("/auth/transaction/:id", async (req, res) => {
     let tnx_id = null;
 
     // ✅ Only generate when success
-    if (status === "success") {
+    if (status === "send") {
       tnx_id = "TNX" + Date.now();
     }
 
