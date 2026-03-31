@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FaDownload } from "react-icons/fa";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Download } from "lucide-react";
 
 const Transaction = () => {
   const [transactions, setTransactions] = useState([]);
@@ -275,7 +275,7 @@ const Transaction = () => {
         <input type="text" className="border px-3 py-2 rounded" placeholder="Search name or number" value={filters.search} onChange={(e) => setFilters({...filters, search: e.target.value})} />
 
         <button className="border px-3 py-2 rounded flex items-center gap-2" onClick={downloadPDF}>
-          Download Data Table <FaDownload />
+          Download Data Table <Download size={16} />
         </button>
       </div>
 
@@ -287,16 +287,16 @@ const Transaction = () => {
               <th className="p-3 border">
                 <input type="checkbox" onChange={(e) => handleSelectAll(e.target.checked)} />
               </th>
-              <th className="p-3 border">ID</th>
-              <th className="p-3 border">Customer</th>
-              <th className="p-3 border">Receiver</th>
-              <th className="p-3 border">Receiver Number</th>
-              <th className="p-3 border">Amount</th>
-              <th className="p-3 border">Transaction ID</th>
-              <th className="p-3 border">Status</th>
-              <th className="p-3 border">Account Type</th>
-              <th className="p-3 border">Time</th>
-              <th className="p-3 border">Actions</th>
+              <th className="p-3 border">আইডি</th>
+              <th className="p-3 border">কাস্টমার</th>
+              <th className="p-3 border">গ্রহীতা</th>
+              <th className="p-3 border">গ্রহীতার নম্বর</th>
+              <th className="p-3 border">পরিমাণ</th>
+              <th className="p-3 border">ট্রানজেকশন আইডি</th>
+              <th className="p-3 border">স্টেটাস</th>
+              <th className="p-3 border">অ্যাকাউন্ট ধরন</th>
+              <th className="p-3 border">সময়</th>
+              <th className="p-3 border">অ্যাকশন</th>
             </tr>
           </thead>
 

@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import axios from "axios";
@@ -36,7 +35,7 @@ const CreateCustomer = () => {
       );
 
       alert(res.data.message || "Customer created successfully");
-      navigate("/customers"); 
+      navigate("/dashboard/customers"); 
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.error || "Failed to create customer");
@@ -44,21 +43,7 @@ const CreateCustomer = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="h-16 flex items-center border-b bg-white px-6 gap-3">
-          <button
-            onClick={() => navigate("/customers")}
-            className="p-2 rounded hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <h1 className="text-lg font-bold">Create Customer</h1>
-        </header>
-
-        {/* Form */}
-        <main className="flex-1 flex justify-center items-start p-6">
+    <div className="p-6">
           <div className="bg-white rounded-lg shadow w-full max-w-lg p-6">
             <h2 className="text-xl font-semibold mb-2">New Customer</h2>
             <p className="text-gray-500 mb-6">Fill in the details to create a new customer</p>
@@ -121,8 +106,6 @@ const CreateCustomer = () => {
               </button>
             </form>
           </div>
-        </main>
-      </div>
     </div>
   );
 };

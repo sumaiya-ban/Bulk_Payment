@@ -11,9 +11,6 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 
-import { Bell, UserCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
 const stats = [
   {
     title: "Total Balance",
@@ -55,54 +52,8 @@ const quickRecipients = [
 ];
 
 const DashboardOverview = () => {
-  const navigate = useNavigate();
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const name = user.name || "User";
     return (
-        <div>
-            <div className="flex-1 flex flex-col">
-
-        {/* Header */}
-        <header className="h-16 bg-white border-b flex items-center justify-between px-6">
-  <div>
-    <h1 className="text-lg font-bold">Dashboard</h1>
-    <p className="text-xs text-gray-500">Welcome back, {name}</p>
-  </div>
-
-  <div className="flex items-center gap-4">
-
-    {/* Notification */}
-    <div className="relative cursor-pointer">
-      <Bell className="w-5 h-5 text-gray-600" />
-
-      {/* Notification Badge */}
-      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">
-        3
-      </span>
-    </div>
-
-    {/* Profile */}
-    <div
-      onClick={() => navigate("profile")}
-      className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
-    >
-      <UserCircle className="w-6 h-6 text-gray-700" />
-      <span className="text-sm font-medium hidden sm:block">
-        {name}
-      </span>
-    </div>
-
-    {/* Send Button */}
-    <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded">
-      <Send className="w-4 h-4" />
-      Send Payment
-    </button>
-
-  </div>
-</header>
-
-        {/* Main */}
-        <main className="p-6 space-y-6">
+        <div className="p-6 space-y-6">
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -256,8 +207,6 @@ const DashboardOverview = () => {
             </div>
           </div>
 
-        </main>
-      </div>
         </div>
     );
 };

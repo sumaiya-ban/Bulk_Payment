@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -62,23 +61,7 @@ const EditRecipient = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <div className="flex-1 flex flex-col">
-
-        {/* Header */}
-        <header className="h-16 flex items-center border-b bg-white px-6 gap-3">
-          <button
-            onClick={() => navigate("/dashboard/recipients")}
-            className="p-2 rounded hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-
-          <h1 className="text-lg font-bold">Edit Recipient</h1>
-        </header>
-
-        {/* Form */}
-        <main className="flex-1 flex justify-center items-start p-6">
+    <div className="p-6">
           <div className="bg-white rounded-lg shadow w-full max-w-lg p-6">
 
             <h2 className="text-xl font-semibold mb-2">
@@ -171,8 +154,6 @@ const EditRecipient = () => {
 
             </form>
           </div>
-        </main>
-      </div>
     </div>
   );
 };

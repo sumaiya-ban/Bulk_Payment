@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { useState } from "react";
-import { MdDomainVerification } from "react-icons/md";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Send,
@@ -18,37 +17,43 @@ import {
 
 const menuItems = [
   {
-    title: "Overview",
+    titleEn: "Overview",
+    titleBn: "ওভারভিউ",
     url: "/dashboard",
     icon: LayoutDashboard,
     roles: ["admin", "customer"],
   },
   {
-    title: "Send Payment",
+    titleEn: "Send Payment",
+    titleBn: "পেমেন্ট পাঠান",
     url: "/dashboard/send",
     icon: Send,
     roles: ["customer"],
   },
   {
-    title: "Transactions",
+    titleEn: "Transactions",
+    titleBn: "লেনদেন",
     url: "/dashboard/transactions",
     icon: History,
     roles: ["admin", "customer"],
   },
   {
-    title: "KYC Verification",
+    titleEn: "KYC Verification",
+    titleBn: "কেওয়াইসি যাচাই",
     url: "/dashboard/verification",
     icon: Send,
     roles: ["customer"],
   },
   {
-    title: "Recipients",
+    titleEn: "Recipients",
+    titleBn: "গ্রহীতারা",
     url: "/dashboard/recipients",
     icon: Users,
     roles: ["admin"],
   },
   {
-    title: "Create Customer",
+    titleEn: "Create Customer",
+    titleBn: "কাস্টমার তৈরি",
     url: "/dashboard/customers",
     icon: Users,
     roles: ["admin"],
@@ -57,18 +62,37 @@ const menuItems = [
 
 const financeItems = [
   {
-    title: "Cards",
+    titleEn: "Cards",
+    titleBn: "কার্ড",
     url: "/dashboard/cards",
     icon: CreditCard,
     roles: ["admin", "customer"],
   },
   {
-    title: "Wallet",
+    titleEn: "Wallet",
+    titleBn: "ওয়ালেট",
     url: "/dashboard/wallet",
     icon: Wallet,
     roles: ["admin", "customer"],
   },
 ];
+
+const sidebarText = {
+  en: {
+    main: "MAIN",
+    finance: "FINANCE",
+    settings: "Settings",
+    logout: "Logout",
+    toggleLabel: "বাংলা",
+  },
+  bn: {
+    main: "মেইন",
+    finance: "ফাইন্যান্স",
+    settings: "সেটিংস",
+    logout: "লগআউট",
+    toggleLabel: "English",
+  },
+};
 
 /* ================= SIDEBAR ================= */
 
@@ -80,6 +104,29 @@ const DashboardSidebar = ({ children }) => {
   /* GET USER ROLE */
 const user = JSON.parse(localStorage.getItem("user") || "{}");
 const role = user.role; // admin or customer
+const isCustomer = role === "customer";
+const [language, setLanguage] = useState(() => {
+  if (!isCustomer) {
+    return "en";
+  }
+
+  return localStorage.getItem("customerSidebarLanguage") || "bn";
+});
+useEffect(() => {
+  if (!isCustomer) {
+    return undefined;
+  }
+
+  const syncLanguage = () => {
+    setLanguage(localStorage.getItem("customerSidebarLanguage") || "bn");
+  };
+
+  window.addEventListener("customer-sidebar-language-change", syncLanguage);
+
+  return () => {
+    window.removeEventListener("customer-sidebar-language-change", syncLanguage);
+  };
+}, [isCustomer]);
  //const user = JSON.parse(localStorage.getItem("user") || "{}");
  //const role = user.type || "admin";
   /* FILTER MENU BY ROLE */
@@ -87,6 +134,10 @@ const filteredMain = menuItems.filter(item => role && item.roles.includes(role))
 const filteredFinance = financeItems.filter(
   (item) => !role || item.roles.includes(role)
 );
+const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
+
+  const getLabel = (item) =>
+    isCustomer && language === "bn" ? item.titleBn : item.titleEn;
 
   const menuClass =
     "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100";
@@ -129,7 +180,7 @@ const filteredFinance = financeItems.filter(
 
           {/* MAIN */}
           <p className={`text-xs text-gray-400 px-4 mb-2 ${collapsed && "hidden"}`}>
-            MAIN
+            {currentText.main}
           </p>
 
           {filteredMain.map((item) => {
@@ -137,21 +188,21 @@ const filteredFinance = financeItems.filter(
 
             return (
               <NavLink
-                key={item.title}
+                key={item.titleEn}
                 to={item.url}
                 className={`${menuClass} ${
                   location.pathname === item.url ? activeClass : ""
                 }`}
               >
                 <Icon size={18} />
-                {!collapsed && <span>{item.title}</span>}
+                {!collapsed && <span>{getLabel(item)}</span>}
               </NavLink>
             );
           })}
 
           {/* FINANCE */}
           <p className={`text-xs text-gray-400 px-4 mt-6 mb-2 ${collapsed && "hidden"}`}>
-            FINANCE
+            {currentText.finance}
           </p>
 
           {filteredFinance.map((item) => {
@@ -159,14 +210,14 @@ const filteredFinance = financeItems.filter(
 
             return (
               <NavLink
-                key={item.title}
+                key={item.titleEn}
                 to={item.url}
                 className={`${menuClass} ${
                   location.pathname === item.url ? activeClass : ""
                 }`}
               >
                 <Icon size={18} />
-                {!collapsed && <span>{item.title}</span>}
+                {!collapsed && <span>{getLabel(item)}</span>}
               </NavLink>
             );
           })}
@@ -184,12 +235,12 @@ const filteredFinance = financeItems.filter(
             }`}
           >
             <Settings size={18} />
-            {!collapsed && <span>Settings</span>}
+            {!collapsed && <span>{currentText.settings}</span>}
           </NavLink>
 
           <a href="/" className={menuClass}>
             <LogOut size={18} />
-            {!collapsed && <span>Logout</span>}
+            {!collapsed && <span>{currentText.logout}</span>}
           </a>
 
         </div>
