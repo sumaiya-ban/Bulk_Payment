@@ -17,6 +17,15 @@ const transporter = nodemailer.createTransport({
   },
   
 });
+const profileDir = path.join(__dirname, "uploads/profiles");
+if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
+
+const profileStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, profileDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+});
+
+const uploadProfile = multer({ storage: profileStorage });
 
 // temporary OTP store (use DB in production)
 const otpStore = {};
@@ -49,7 +58,13 @@ const initDatabase = async () => {
         status ENUM('active','inactive') DEFAULT 'active'
       )
     `);
-
+await db.query(`
+  ALTER TABLE users
+  ADD COLUMN present_address VARCHAR(255),
+  ADD COLUMN country VARCHAR(100),
+  ADD COLUMN image VARCHAR(255),
+  ADD COLUMN occupation VARCHAR(100)
+`);
     await db.query(`
       CREATE TABLE IF NOT EXISTS kycVerification (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -228,11 +243,35 @@ app.delete("/auth/customer/:id", async (req, res) => {
   try { await db.query("DELETE FROM users WHERE id=?", [id]); res.json({ message: "Customer deleted successfully" }); }
   catch (err) { console.error(err); res.status(500).json({ error: "Server error" }); }
 });
-app.patch("/auth/customer/:id", async (req, res) => {
+app.patch("/auth/customer/:id", uploadProfile.single("image"), async (req, res) => {
   const { id } = req.params;
-  const { name, status, phone } = req.body;
-  try { await db.query("UPDATE users SET name=?,status=?,phone=? WHERE id=?", [name,status,phone,id]); res.json({ message: "Customer updated successfully" }); }
-  catch (err) { console.error(err); res.status(500).json({ error: "Server error" }); }
+
+  const {
+    name,
+    phone,
+    present_address,
+    country,
+    occupation
+  } = req.body;
+
+  const image = req.file ? req.file.filename : null;
+
+  try {
+    await db.query(
+      `UPDATE users 
+       SET name=?, phone=?, present_address=?, country=?, occupation=?, image=IFNULL(?, image)
+       WHERE id=?`,
+      [name, phone, present_address, country, occupation, image, id]
+    );
+
+   res.json({
+  message: "Customer updated successfully",
+  image: image 
+});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 // Receivers
