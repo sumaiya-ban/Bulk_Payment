@@ -1,4 +1,5 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
@@ -6,16 +7,18 @@ const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const mysql = require("mysql2/promise");
 const multer = require("multer");
-const path = require("path");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
+const mailUser = process.env.GMAIL_USER || process.env.EMAIL_USER || "yourrealemail@gmail.com";
+const mailPass = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASS || "abcd efgh ijkl mnop";
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
   auth: {
-    user: "yourrealemail@gmail.com",
-    pass: "abcd efgh ijkl mnop",
+    user: mailUser,
+    pass: mailPass,
   },
-  
 });
 const profileDir = path.join(__dirname, "uploads/profiles");
 if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
@@ -29,6 +32,7 @@ const uploadProfile = multer({ storage: profileStorage });
 
 // temporary OTP store (use DB in production)
 const otpStore = {};
+const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const app = express();
 const PORT = process.env.PORT || 8081;
 
@@ -36,17 +40,83 @@ const PORT = process.env.PORT || 8081;
 const uploadDir = path.join(__dirname, "uploads/kyc");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
+const DB_NAME = "auth_db";
+
 // ================= DATABASE CONNECTION =================
-const db = mysql.createPool({
+let db = mysql.createPool({
   host: "localhost",
   user: "root",
   password: "",
-  database: "auth_db",
+  database: DB_NAME,
 });
 
 // ================= INIT DATABASE / TABLES =================
+const ensureColumn = async (tableName, columnName, definition) => {
+  const [rows] = await db.query(
+    `
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = ?
+        AND COLUMN_NAME = ?
+      LIMIT 1
+    `,
+    [DB_NAME, tableName, columnName]
+  );
+
+  if (rows.length === 0) {
+    await db.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+};
+
+const ensureNotificationsTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      transaction_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      is_read TINYINT(1) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+  `);
+};
+
+const ensureTransactionStatusColumn = async () => {
+  await db.query(`
+    ALTER TABLE transactions
+    MODIFY COLUMN status ENUM('pending','send','failed') DEFAULT 'pending'
+  `);
+};
+
+const normalizeTransactionStatus = (status) => {
+  if (status === "success") {
+    return "send";
+  }
+
+  return status;
+};
+
 const initDatabase = async () => {
   try {
+    const serverConnection = await mysql.createConnection({
+      host: "localhost",
+      user: "root",
+      password: "",
+    });
+
+    await serverConnection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
+    await serverConnection.end();
+
+    await db.end();
+    db = mysql.createPool({
+      host: "localhost",
+      user: "root",
+      password: "",
+      database: DB_NAME,
+    });
+
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,15 +126,14 @@ const initDatabase = async () => {
         name VARCHAR(40),
         type ENUM('admin','customer') DEFAULT 'customer',
         status ENUM('active','inactive') DEFAULT 'active'
-      )
+      ) ENGINE=InnoDB;
     `);
-await db.query(`
-  ALTER TABLE users
-  ADD COLUMN present_address VARCHAR(255),
-  ADD COLUMN country VARCHAR(100),
-  ADD COLUMN image VARCHAR(255),
-  ADD COLUMN occupation VARCHAR(100)
-`);
+
+    await ensureColumn("users", "present_address", "VARCHAR(255)");
+    await ensureColumn("users", "country", "VARCHAR(100)");
+    await ensureColumn("users", "image", "VARCHAR(255)");
+    await ensureColumn("users", "occupation", "VARCHAR(100)");
+
     await db.query(`
       CREATE TABLE IF NOT EXISTS kycVerification (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -78,7 +147,7 @@ await db.query(`
         verified_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
+      ) ENGINE=InnoDB;
     `);
 
     await db.query(`
@@ -89,7 +158,7 @@ await db.query(`
         account_type ENUM('bkash','nagad','rocket') NOT NULL,
         status ENUM('active','inactive') DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
+      ) ENGINE=InnoDB;
     `);
 
     await db.query(`
@@ -99,14 +168,21 @@ await db.query(`
         receiver_id INT NULL,
         account_type ENUM('bkash','nagad','rocket') NOT NULL,
         amount DECIMAL(10,2) NOT NULL,
+        notes VARCHAR(255) NULL,
         tnx_id VARCHAR(100) NULL,
         tnx_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status ENUM('pending','send','failed') DEFAULT 'pending',
+        status ENUM('pending','send','success','failed') DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
+      ) ENGINE=InnoDB;
     `);
 
-    console.log("Database initialized successfully");
+    await ensureColumn("transactions", "notes", "VARCHAR(255) NULL");
+    await ensureTransactionStatusColumn();
+
+    await ensureNotificationsTable();
+    await ensureTransactionNotificationTrigger();
+
+    console.log("Database initialized with InnoDB");
   } catch (err) {
     console.error("DB initialization error:", err);
   }
@@ -114,12 +190,299 @@ await db.query(`
 
 initDatabase();
 
+const ensureTransactionNotificationTrigger = async () => {
+  await ensureNotificationsTable();
+  await db.query("DROP TRIGGER IF EXISTS after_transaction_status_notification");
+  await db.query(`
+    CREATE TRIGGER after_transaction_status_notification
+    AFTER UPDATE ON transactions
+    FOR EACH ROW
+    BEGIN
+      IF OLD.status = 'pending'
+         AND NEW.status IN ('send', 'success', 'failed')
+         AND NEW.customer_id IS NOT NULL
+         AND OLD.status <> NEW.status THEN
+        INSERT INTO notifications (user_id, transaction_id, title, message)
+        SELECT
+          NEW.customer_id,
+          NEW.id,
+          CASE
+            WHEN NEW.status IN ('send', 'success') THEN 'Transaction sent successfully'
+            ELSE 'Transaction failed'
+          END,
+          CASE
+            WHEN NEW.status IN ('send', 'success') THEN CONCAT(
+              'Your transaction to ',
+              COALESCE((SELECT name FROM receivers WHERE id = NEW.receiver_id LIMIT 1), 'the receiver'),
+              ' for ',
+              FORMAT(NEW.amount, 2),
+              ' has been sent successfully.'
+            )
+            ELSE CONCAT(
+              'Your transaction to ',
+              COALESCE((SELECT name FROM receivers WHERE id = NEW.receiver_id LIMIT 1), 'the receiver'),
+              ' for ',
+              FORMAT(NEW.amount, 2),
+              ' has failed.'
+            )
+          END
+        FROM DUAL
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM notifications
+          WHERE user_id = NEW.customer_id
+            AND transaction_id = NEW.id
+            AND title = CASE
+              WHEN NEW.status IN ('send', 'success') THEN 'Transaction sent successfully'
+              ELSE 'Transaction failed'
+            END
+        );
+      END IF;
+    END
+  `);
+};
+
+const syncNotificationsForUser = async (userId) => {
+  await ensureNotificationsTable();
+
+  const [transactions] = await db.query(
+    `
+      SELECT
+        t.id,
+        t.customer_id,
+        t.status,
+        t.amount,
+        r.name AS receiver_name
+      FROM transactions t
+      LEFT JOIN receivers r ON t.receiver_id = r.id
+      WHERE t.customer_id = ?
+        AND t.status IN ('send', 'success', 'failed')
+    `,
+    [userId]
+  );
+
+  for (const tx of transactions) {
+    const title =
+      normalizeTransactionStatus(tx.status) === "send"
+        ? "Transaction sent successfully"
+        : "Transaction failed";
+    const message =
+      normalizeTransactionStatus(tx.status) === "send"
+        ? `Your transaction to ${tx.receiver_name || "the receiver"} for ${Number(tx.amount).toFixed(2)} has been sent successfully.`
+        : `Your transaction to ${tx.receiver_name || "the receiver"} for ${Number(tx.amount).toFixed(2)} has failed.`;
+
+    await db.query(
+      `
+        INSERT INTO notifications (user_id, transaction_id, title, message)
+        SELECT ?, ?, ?, ?
+        FROM DUAL
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM notifications
+          WHERE user_id = ?
+            AND transaction_id = ?
+            AND title = ?
+        )
+      `,
+      [userId, tx.id, title, message, userId, tx.id, title]
+    );
+  }
+};
+
+const syncNotificationForTransaction = async (transactionId) => {
+  await ensureNotificationsTable();
+
+  const [rows] = await db.query(
+    `
+      SELECT
+        t.id,
+        t.customer_id,
+        t.status,
+        t.amount,
+        r.name AS receiver_name
+      FROM transactions t
+      LEFT JOIN receivers r ON t.receiver_id = r.id
+      WHERE t.id = ?
+      LIMIT 1
+    `,
+    [transactionId]
+  );
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  const tx = rows[0];
+  const normalizedStatus = normalizeTransactionStatus(tx.status);
+
+  if (!tx.customer_id || !["send", "failed"].includes(normalizedStatus)) {
+    return;
+  }
+
+  const title =
+    normalizedStatus === "send"
+      ? "Transaction sent successfully"
+      : "Transaction failed";
+  const message =
+    normalizedStatus === "send"
+      ? `Your transaction to ${tx.receiver_name || "the receiver"} for ${Number(tx.amount).toFixed(2)} has been sent successfully.`
+      : `Your transaction to ${tx.receiver_name || "the receiver"} for ${Number(tx.amount).toFixed(2)} has failed.`;
+
+  await db.query(
+    `
+      INSERT INTO notifications (user_id, transaction_id, title, message)
+      SELECT ?, ?, ?, ?
+      FROM DUAL
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM notifications
+        WHERE user_id = ?
+          AND transaction_id = ?
+          AND title = ?
+      )
+    `,
+    [tx.customer_id, tx.id, title, message, tx.customer_id, tx.id, title]
+  );
+};
+
+const createNotificationForStatusChange = async (transaction, nextStatus) => {
+  const normalizedStatus = normalizeTransactionStatus(nextStatus);
+
+  if (
+    !transaction?.customer_id ||
+    transaction.status !== "pending" ||
+    !["send", "failed"].includes(normalizedStatus)
+  ) {
+    return;
+  }
+
+  const title =
+    normalizedStatus === "send"
+      ? "Transaction sent successfully"
+      : "Transaction failed";
+  const message =
+    normalizedStatus === "send"
+      ? `Your transaction to ${transaction.receiver_name || "the receiver"} for ${Number(transaction.amount).toFixed(2)} has been sent successfully.`
+      : `Your transaction to ${transaction.receiver_name || "the receiver"} for ${Number(transaction.amount).toFixed(2)} has failed.`;
+
+  await db.query(
+    `
+      INSERT INTO notifications (user_id, transaction_id, title, message)
+      SELECT ?, ?, ?, ?
+      FROM DUAL
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM notifications
+        WHERE user_id = ?
+          AND transaction_id = ?
+          AND title = ?
+      )
+    `,
+    [
+      transaction.customer_id,
+      transaction.id,
+      title,
+      message,
+      transaction.customer_id,
+      transaction.id,
+      title,
+    ]
+  );
+};
+
+const sendTransactionStatusEmail = async (transaction, nextStatus) => {
+  const normalizedStatus = normalizeTransactionStatus(nextStatus);
+
+  if (
+    !transaction?.customer_email ||
+    transaction.status !== "pending" ||
+    !["send", "failed"].includes(normalizedStatus)
+  ) {
+    return;
+  }
+
+  const statusLabel = normalizedStatus === "send" ? "Sent" : "Failed";
+  const subject =
+    normalizedStatus === "send"
+      ? "Bulk Payment Transaction Sent"
+      : "Bulk Payment Transaction Failed";
+
+  const notesText = transaction.notes?.trim() ? transaction.notes : "N/A";
+  const receiverName = transaction.receiver_name || "N/A";
+  const receiverNumber = transaction.receiver_number || "N/A";
+  const accountType = transaction.account_type || "N/A";
+  const amount = Number(transaction.amount || 0).toFixed(2);
+  const transactionCode = transaction.tnx_id || `TNX${transaction.id}`;
+
+  await transporter.sendMail({
+    from: mailUser,
+    to: transaction.customer_email,
+    subject,
+    text: [
+      `Hello ${transaction.customer_name || "Customer"},`,
+      "",
+      `Your transaction status is now: ${statusLabel}`,
+      `Transaction ID: ${transactionCode}`,
+      // `Database ID: ${transaction.id}`,
+      `Receiver Name: ${receiverName}`,
+      `Receiver Number: ${receiverNumber}`,
+      `Account Type: ${accountType}`,
+      `Amount: ${amount}`,
+      `Status: ${normalizedStatus}`,
+      `Notes: ${notesText}`,
+    ].join("\n"),
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>${subject}</h2>
+        <p>Hello ${transaction.customer_name || "Customer"},</p>
+        <p>Your transaction status is now <strong>${statusLabel}</strong>.</p>
+        <table style="border-collapse: collapse;">
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Transaction ID</strong></td><td>${transactionCode}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Database ID</strong></td><td>${transaction.id}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Receiver Name</strong></td><td>${receiverName}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Receiver Number</strong></td><td>${receiverNumber}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Account Type</strong></td><td>${accountType}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Amount</strong></td><td>${amount}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Status</strong></td><td>${normalizedStatus}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Notes</strong></td><td>${notesText}</td></tr>
+        </table>
+      </div>
+    `,
+  });
+};
+
+const getStaticNotifications = (userId) => [
+  {
+    id: `static-${userId}-1`,
+    user_id: Number(userId),
+    transaction_id: null,
+    title: "Welcome to Bulk Payment",
+    message: "Your notifications are temporarily running in static mode while database setup is being completed.",
+    is_read: 0,
+    transaction_status: null,
+    tnx_id: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: `static-${userId}-2`,
+    user_id: Number(userId),
+    transaction_id: null,
+    title: "Test notification",
+    message: "This is a temporary static notification for the dashboard bell.",
+    is_read: 1,
+    transaction_status: null,
+    tnx_id: null,
+    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+  },
+];
+
 // ================= MIDDLEWARE =================
 app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/uploads/kyc", express.static(uploadDir)); // serve uploaded images
+app.use("/uploads/profiles", express.static(profileDir));
 
 // ================= AUTH MIDDLEWARE =================
 const authMiddleware = (req, res, next) => {
@@ -133,6 +496,19 @@ const authMiddleware = (req, res, next) => {
   } catch (err) {
     return res.status(401).json({ error: "Invalid token" });
   }
+};
+
+const generateOtp = () => Math.floor(1000 + Math.random() * 9000).toString();
+
+const clearExpiredOtp = (email) => {
+  const savedOtp = otpStore[email];
+
+  if (savedOtp && savedOtp.expiresAt < Date.now()) {
+    delete otpStore[email];
+    return null;
+  }
+
+  return savedOtp || null;
 };
 
 // ================= MULTER SETUP =================
@@ -191,6 +567,163 @@ app.post("/auth/login", async (req, res) => {
 app.post("/auth/logout", (req, res) => {
   res.clearCookie("token");
   res.json({ message: "Logged out successfully" });
+});
+
+app.post("/auth/send-otp", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  if (!/\S+@\S+\.\S+/.test(email)) {
+    return res.status(400).json({ error: "Invalid email format" });
+  }
+
+  try {
+    const [rows] = await db.query("SELECT id, email FROM users WHERE email = ?", [email]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (
+      mailUser === "yourrealemail@gmail.com" ||
+      mailPass === "abcd efgh ijkl mnop"
+    ) {
+      return res.status(500).json({
+        error: "Email service is not configured. Add GMAIL_USER and GMAIL_APP_PASSWORD to backend/.env, then restart the backend server.",
+      });
+    }
+
+    const otp = generateOtp();
+    otpStore[email] = {
+      otp,
+      expiresAt: Date.now() + OTP_EXPIRY_MS,
+      verified: false,
+    };
+
+    await transporter.sendMail({
+      from: mailUser,
+      to: email,
+      subject: "Your Bulk Payment OTP Code",
+      text: `Your 4-digit OTP is ${otp}. It will expire in 5 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2>Bulk Payment OTP</h2>
+          <p>Your 4-digit OTP is:</p>
+          <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${otp}</p>
+          <p>This code will expire in 5 minutes.</p>
+        </div>
+      `,
+    });
+
+    res.json({ message: "4-digit OTP sent successfully" });
+  } catch (err) {
+    console.error("Send OTP error:", err);
+    const smtpHint =
+      err?.code === "EAUTH"
+        ? "Gmail authentication failed. Check GMAIL_USER and GMAIL_APP_PASSWORD."
+        : err?.code === "EINVAL"
+        ? "Email transport configuration is invalid."
+        : err?.responseCode === 535
+        ? "Gmail rejected the login. Use a valid Gmail App Password."
+        : err?.message || "Failed to send OTP email";
+
+    res.status(500).json({ error: smtpHint });
+  }
+});
+
+app.post("/auth/verify-otp", async (req, res) => {
+  const { email, otp, purpose } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ error: "Email and OTP are required" });
+  }
+
+  try {
+    const savedOtp = clearExpiredOtp(email);
+
+    if (!savedOtp) {
+      return res.status(400).json({ error: "OTP expired or not found" });
+    }
+
+    if (savedOtp.otp !== otp) {
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
+
+    otpStore[email].verified = true;
+
+    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = rows[0];
+
+    if (purpose === "login") {
+      delete otpStore[email];
+
+      const token = jwt.sign(
+        { id: user.id, email: user.email, type: user.type },
+        process.env.JWT_SECRET || "your_secret_key",
+        { expiresIn: "1d" }
+      );
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      return res.json({
+        message: "OTP verified and login successful",
+        user: { id: user.id, name: user.name, email: user.email, role: user.type },
+      });
+    }
+
+    res.json({ message: "OTP matched successfully" });
+  } catch (err) {
+    console.error("Verify OTP error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/auth/reset-password", async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: "Email and new password are required" });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+
+  try {
+    const savedOtp = clearExpiredOtp(email);
+
+    if (!savedOtp?.verified) {
+      return res.status(400).json({ error: "Verify OTP before resetting password" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const [result] = await db.query("UPDATE users SET password = ? WHERE email = ?", [
+      hashedPassword,
+      email,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    delete otpStore[email];
+    res.json({ message: "Password reset successful" });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 // ================= PROFILE =================
@@ -283,7 +816,107 @@ app.delete("/auth/receiver/:id", async(req,res)=>{const {id}=req.params; try{awa
 // Transactions
 app.get("/auth/transactions", async(req,res)=>{try{const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id ORDER BY t.id DESC`);res.json(rows);}catch(err){console.error(err);res.status(500).json({error:"Server error"});}});
 app.get("/auth/transactions/:userId", async(req,res)=>{const {userId}=req.params; const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id WHERE t.customer_id=? ORDER BY t.id DESC`,[userId]);res.json(rows);});
-app.patch("/auth/transaction/:id", async(req,res)=>{const {id}=req.params; const {status}=req.body; try{let tnx_id=null; if(status==="send"){tnx_id="TNX"+Date.now();} await db.query("UPDATE transactions SET status=?, tnx_id=? WHERE id=?",[status,tnx_id,id]);res.json({message:"Transaction updated successfully"});}catch(err){console.error(err);res.status(500).json({error:"Server error"});}});
+app.patch("/auth/transaction/:id", async(req,res)=>{
+  const {id}=req.params;
+  const {status}=req.body;
+  const normalizedStatus = normalizeTransactionStatus(status);
+
+  try{
+    await ensureNotificationsTable();
+
+    const [existingRows] = await db.query(
+      `SELECT
+         t.*,
+         u.email AS customer_email,
+         u.name AS customer_name,
+         r.name AS receiver_name,
+         r.number AS receiver_number
+       FROM transactions t
+       LEFT JOIN users u ON t.customer_id = u.id
+       LEFT JOIN receivers r ON t.receiver_id = r.id
+       WHERE t.id = ?`,
+      [id]
+    );
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    const existingTransaction = existingRows[0];
+    let tnx_id = existingTransaction.tnx_id;
+
+    if(normalizedStatus==="send" && !tnx_id){
+      tnx_id="TNX"+Date.now();
+    }
+
+    if(normalizedStatus==="failed"){
+      tnx_id=null;
+    }
+
+    await db.query("UPDATE transactions SET status=?, tnx_id=? WHERE id=?",[normalizedStatus,tnx_id,id]);
+
+    if (existingTransaction.customer_id) {
+      await createNotificationForStatusChange(existingTransaction, normalizedStatus);
+      await sendTransactionStatusEmail(
+        {
+          ...existingTransaction,
+          status: existingTransaction.status,
+          tnx_id,
+        },
+        normalizedStatus
+      );
+      await syncNotificationForTransaction(id);
+      await syncNotificationsForUser(existingTransaction.customer_id);
+    }
+
+    res.json({message:"Transaction updated successfully"});
+  }catch(err){
+    console.error(err);
+    res.status(500).json({error:"Server error"});
+  }
+});
+app.get("/auth/notifications/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    await ensureNotificationsTable();
+    await syncNotificationsForUser(userId);
+
+    const [rows] = await db.query(
+      `SELECT n.*, t.status AS transaction_status, t.tnx_id
+       FROM notifications n
+       LEFT JOIN transactions t ON n.transaction_id = t.id
+       WHERE n.user_id = ?
+       ORDER BY n.created_at DESC, n.id DESC`,
+      [userId]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    if (err.code === "ER_NO_SUCH_TABLE") {
+      return res.json(getStaticNotifications(userId));
+    }
+
+    res.status(500).json({ error: "Server error" });
+  }
+});
+app.patch("/auth/notifications/:userId/read", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    await ensureNotificationsTable();
+    await db.query("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", [userId]);
+    res.json({ message: "Notifications marked as read" });
+  } catch (err) {
+    console.error(err);
+    if (err.code === "ER_NO_SUCH_TABLE") {
+      return res.json({ message: "Static notifications acknowledged" });
+    }
+
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 // ================= TEST ROUTE =================
 app.get("/", (req,res)=>{res.send("Server is running on port "+PORT);});
@@ -335,65 +968,4 @@ app.post("/auth/transaction", async (req, res) => {
     console.error("Transaction creation error:", err);
     res.status(500).json({ error: "Server error" });
   }
-});
-app.post("/auth/send-otp", async (req, res) => {
-  const { email } = req.body;
-
-  console.log("Sending OTP to:", email);
-
-  if (!email) return res.status(400).json({ error: "Email required" });
-
-  const otp = Math.floor(100000 + Math.random() * 900000);
-  otpStore[email] = otp;
-
-  try {
-    await transporter.sendMail({
-      from: "yourrealemail@gmail.com", // ✅ SAME as auth.user
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP is: ${otp}`,
-    });
-
-    console.log("OTP SENT:", otp);
-
-    res.json({ message: "OTP sent successfully" });
-  } catch (err) {
-    console.error("MAIL ERROR:", err); // 👈 CHECK THIS
-    res.status(500).json({ error: "OTP send failed" });
-  }
-});
-app.post("/auth/reset-password", async (req, res) => {
-  const { email, newPassword } = req.body;
-
-  if (!email || !newPassword)
-    return res.status(400).json({ error: "All fields required" });
-
-  try {
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    await db.query("UPDATE users SET password=? WHERE email=?", [
-      hashed,
-      email,
-    ]);
-
-    delete otpStore[email]; // clear OTP
-
-    res.json({ message: "Password reset successful" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-app.post("/auth/verify-otp", (req, res) => {
-  const { email, otp } = req.body;
-
-  if (!otpStore[email]) {
-    return res.status(400).json({ error: "OTP not found" });
-  }
-
-  if (Number(otpStore[email]) !== Number(otp)) {
-    return res.status(400).json({ error: "Invalid OTP" });
-  }
-
-  res.json({ message: "OTP verified successfully" });
 });

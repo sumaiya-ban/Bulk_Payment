@@ -32,6 +32,20 @@ const Transaction = () => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const users_id = user.id || "User";
   const name = user.name || "User";
+  const isAdmin = user.role === "admin";
+
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case "success":
+      case "send":
+        return "bg-green-100 text-green-700";
+      case "failed":
+        return "bg-red-100 text-red-700";
+      case "pending":
+      default:
+        return "bg-orange-100 text-orange-700";
+    }
+  };
 
   useEffect(() => {
     fetchTransactions();
@@ -65,6 +79,17 @@ const Transaction = () => {
       setReceivers(res.data);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleStatusUpdate = async (id, status) => {
+    try {
+      await axios.patch(`http://localhost:8081/auth/transaction/${id}`, { status });
+      await fetchTransactions();
+      alert(`Transaction marked as ${status}. Email notification attempted.`);
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.error || "Failed to update transaction status");
     }
   };
 
@@ -118,7 +143,7 @@ const Transaction = () => {
 };
 
   const filteredData = transactions
-    .filter((tx) => tx.customer_id === Number(users_id))
+    .filter((tx) => (isAdmin ? true : tx.customer_id === Number(users_id)))
     .filter((tx) => (filters.status ? tx.status === filters.status : true))
     .filter((tx) => {
       if (!filters.date) return true;
@@ -268,7 +293,8 @@ const Transaction = () => {
         <select className="border px-3 py-2 rounded" value={filters.status} onChange={(e) => setFilters({...filters, status: e.target.value})}>
           <option value="">All Status</option>
           <option value="pending">Pending</option>
-          <option value="success">Success</option>
+          <option value="send">Success</option>
+          <option value="failed">Failed</option>
         </select>
 
         <input type="date" className="border px-3 py-2 rounded" value={filters.date} onChange={(e) => setFilters({...filters, date: e.target.value})} />
@@ -287,7 +313,7 @@ const Transaction = () => {
               <th className="p-3 border">
                 <input type="checkbox" onChange={(e) => handleSelectAll(e.target.checked)} />
               </th>
-              <th className="p-3 border">আইডি</th>
+              {/* <th className="p-3 border">আইডি</th> */}
               <th className="p-3 border">কাস্টমার</th>
               <th className="p-3 border">গ্রহীতা</th>
               <th className="p-3 border">গ্রহীতার নম্বর</th>
@@ -296,7 +322,9 @@ const Transaction = () => {
               <th className="p-3 border">স্টেটাস</th>
               <th className="p-3 border">অ্যাকাউন্ট ধরন</th>
               <th className="p-3 border">সময়</th>
+              <th className="p-3 border">notes</th>
               <th className="p-3 border">অ্যাকশন</th>
+              
             </tr>
           </thead>
 
@@ -315,20 +343,44 @@ const Transaction = () => {
                   <td className="p-3 border">
                     <input type="checkbox" checked={selectedRows.includes(tx.id)} onChange={() => handleRowSelect(tx.id)} />
                   </td>
-                  <td className="p-3 border">{tx.id}</td>
+                  {/* <td className="p-3 border">{tx.id}</td> */}
                   <td className="p-3 border">{tx.customer_name || "Unknown"}</td>
                   <td className="p-3 border">{tx.receiver_name || "Unknown"}</td>
                   <td className="p-3 border">{tx.receiver_number || "N/A"}</td>
                   <td className="p-3 border">{tx.amount}</td>
                   <td className="p-3 border">{tx.tnx_id}</td>
                   <td className="px-6 py-4 border whitespace-nowrap text-center text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${tx.status === "pending" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(tx.status)}`}>
                       {tx.status}
                     </span>
                   </td>
                   <td className="p-3 border">{tx.account_type}</td>
                   <td className="p-3 border">{new Date(tx.tnx_time).toLocaleString()}</td>
-                  <td className="p-3 border"><button>View</button></td>
+                  <td className="p-3 border">{tx.notes}</td>
+                  <td className="p-3 border">
+                    {isAdmin && tx.status === "pending" ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleStatusUpdate(tx.id, "send")}
+                          className="rounded bg-green-600 px-3 py-1 text-white hover:bg-green-700"
+                        >
+                          Send
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStatusUpdate(tx.id, "failed")}
+                          className="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
+                        >
+                          Failed
+                        </button>
+                      </div>
+                    ) : isAdmin ? (
+                      <span className="text-gray-500">Updated</span>
+                    ) : (
+                      <span className="text-gray-500">Admin only</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}

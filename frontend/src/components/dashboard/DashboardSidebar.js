@@ -96,7 +96,7 @@ const sidebarText = {
 
 /* ================= SIDEBAR ================= */
 
-const DashboardSidebar = ({ children }) => {
+const DashboardSidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -145,8 +145,7 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
   const activeClass = "bg-blue-100 text-blue-600";
 
   return (
-    <div className="flex bg-gray-100 h-screen">
-
+    <>
       {/* Mobile Button */}
       <button
         className="md:hidden fixed top-4 left-4 z-50"
@@ -157,10 +156,10 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
 
       {/* Sidebar */}
       <div
-        className={`bg-white border-r transition-all duration-300
+        className={`bg-white border-r transition-all duration-300 flex flex-col
         ${collapsed ? "w-20" : "w-64"}
         ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
-        md:translate-x-0 fixed md:relative h-full z-40`}
+        fixed inset-y-0 left-0 z-40 md:sticky md:top-0 md:translate-x-0 h-screen`}
       >
 
         {/* Logo */}
@@ -176,7 +175,7 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
         </div>
 
         {/* Menu */}
-        <div className="p-2">
+        <div className="flex-1 overflow-y-auto p-2">
 
           {/* MAIN */}
           <p className={`text-xs text-gray-400 px-4 mb-2 ${collapsed && "hidden"}`}>
@@ -224,7 +223,7 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
         </div>
 
         {/* Footer */}
-        <div className="absolute bottom-0 w-full p-2 border-t">
+        <div className="mt-auto w-full p-2 border-t bg-white">
 
           <NavLink
             to="/dashboard/settings"
@@ -246,11 +245,7 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
         </div>
       </div>
 
-      {/* Page Content */}
-      <div className="flex-1 overflow-auto">
-        {children}
-      </div>
-    </div>
+    </>
   );
 };
 

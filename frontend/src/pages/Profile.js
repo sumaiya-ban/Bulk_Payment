@@ -89,14 +89,19 @@ const Profile = () => {
         formData.append("image", image);
       }
 
-      await axios.patch(
+      const res = await axios.patch(
         `http://localhost:8081/auth/customer/${storedUser.id}`,
         formData,
         { withCredentials: true }
       );
 
       alert("Profile updated successfully");
-      localStorage.setItem("user", JSON.stringify({ ...storedUser, ...form }));
+      const updatedUser = {
+        ...storedUser,
+        ...form,
+        image: res.data?.image || storedUser.image,
+      };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
     } catch (err) {
       console.error(err);
       alert("Update failed");
@@ -105,96 +110,117 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-md mx-auto bg-white p-6 rounded-xl border">
-        <h1 className="text-xl font-bold mb-4">{currentText.title}</h1>
+      <div className="max-w-4xl mx-auto bg-white p-6 rounded-2xl border border-gray-400 shadow-sm">
+        <h1 className="text-2xl font-bold mb-6">{currentText.title}</h1>
 
-        <div className="flex flex-col items-center mb-4">
-          <img
-            className="border rounded-full w-24 h-24 object-cover"
-            src={
-              preview ||
-              `http://localhost:8081/uploads/profiles/${storedUser.image}`
-            }
-            alt="Profile"
-          />
-          <label className="mt-3 w-full text-sm font-medium text-gray-700">
-            {currentText.image}
-          </label>
-          <input type="file" onChange={handleImage} className="mt-2 w-full" />
+        <div className="grid gap-8 md:grid-cols-[1fr_260px] items-start">
+          <div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {currentText.name}
+                </label>
+                <input
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder={profileText.en.name}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {currentText.email}
+                </label>
+                <input
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  placeholder={profileText.en.email}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {currentText.phone}
+                </label>
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder={profileText.en.phone}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {currentText.occupation}
+                </label>
+                <input
+                  name="occupation"
+                  value={form.occupation}
+                  onChange={handleChange}
+                  placeholder={profileText.en.occupation}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {currentText.address}
+                </label>
+                <input
+                  name="present_address"
+                  value={form.present_address}
+                  onChange={handleChange}
+                  placeholder={profileText.en.address}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {currentText.country}
+                </label>
+                <input
+                  name="country"
+                  value={form.country}
+                  onChange={handleChange}
+                  placeholder={profileText.en.country}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
+              
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              className="mt-6 w-full md:w-auto bg-blue-500 text-white px-6 py-3 rounded-lg"
+            >
+              {currentText.update}
+            </button>
+          </div>
+
+          <div className="rounded-2xl p-5 bg-gray-50 md:sticky md:top-6">
+            <div className="flex flex-col items-center">
+              <img
+                className="border rounded-full w-28 h-28 object-cover bg-white"
+                src={
+                  preview ||
+                  `http://localhost:8081/uploads/profiles/${storedUser.image}`
+                }
+                alt="Profile"
+              />
+              <label className="mt-4 w-full text-sm font-medium text-gray-700">
+                {currentText.image}
+              </label>
+              <input type="file" onChange={handleImage} className="mt-2 w-full" />
+            </div>
+          </div>
         </div>
-
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {currentText.name}
-        </label>
-        <input
-          name="name"
-          value={form.name}
-          onChange={handleChange}
-          placeholder={profileText.en.name}
-          className="w-full border p-2 mb-3"
-        />
-
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {currentText.email}
-        </label>
-        <input
-          name="email"
-          value={form.email}
-          onChange={handleChange}
-          placeholder={profileText.en.email}
-          className="w-full border p-2 mb-3"
-        />
-
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {currentText.phone}
-        </label>
-        <input
-          name="phone"
-          value={form.phone}
-          onChange={handleChange}
-          placeholder={profileText.en.phone}
-          className="w-full border p-2 mb-3"
-        />
-
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {currentText.occupation}
-        </label>
-        <input
-          name="occupation"
-          value={form.occupation}
-          onChange={handleChange}
-          placeholder={profileText.en.occupation}
-          className="w-full border p-2 mb-3"
-        />
-
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {currentText.address}
-        </label>
-        <input
-          name="present_address"
-          value={form.present_address}
-          onChange={handleChange}
-          placeholder={profileText.en.address}
-          className="w-full border p-2 mb-3"
-        />
-
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {currentText.country}
-        </label>
-        <input
-          name="country"
-          value={form.country}
-          onChange={handleChange}
-          placeholder={profileText.en.country}
-          className="w-full border p-2 mb-4"
-        />
-
-        <button
-          onClick={handleSubmit}
-          className="w-full bg-blue-500 text-white p-2 rounded"
-        >
-          {currentText.update}
-        </button>
       </div>
     </div>
   );

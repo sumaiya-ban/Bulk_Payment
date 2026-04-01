@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState("");
@@ -10,9 +10,6 @@ const ForgotPasswordPage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const navigate = useNavigate();
-
-  // ================= SEND OTP =================
   const handleSendOTP = async () => {
     setError("");
     setSuccess("");
@@ -25,14 +22,14 @@ const ForgotPasswordPage = () => {
     try {
       const res = await axios.post("http://localhost:8081/auth/send-otp", { email });
       setSuccess(res.data.message);
-      setStep(2); // go to OTP verification
+      setOtp("");
+      setStep(2);
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.error || "Failed to send OTP");
     }
   };
 
-  // ================= VERIFY OTP =================
   const handleVerifyOTP = async () => {
     setError("");
     setSuccess("");
@@ -45,14 +42,13 @@ const ForgotPasswordPage = () => {
     try {
       const res = await axios.post("http://localhost:8081/auth/verify-otp", { email, otp });
       setSuccess(res.data.message);
-      setStep(3); // go to reset password
+      setStep(3);
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.error || "Invalid OTP");
     }
   };
 
-  // ================= RESET PASSWORD =================
   const handleResetPassword = async () => {
     setError("");
     setSuccess("");
@@ -68,8 +64,7 @@ const ForgotPasswordPage = () => {
         newPassword,
       });
       setSuccess(res.data.message);
-      alert("✅ Password reset successful! Please login.");
-      navigate("/login");
+      setNewPassword("");
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.error || "Failed to reset password");
@@ -84,11 +79,10 @@ const ForgotPasswordPage = () => {
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
         {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
 
-        {/* STEP 1: SEND OTP */}
         {step === 1 && (
           <>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Enter your registered email
+              Enter your email
             </label>
             <input
               type="email"
@@ -106,17 +100,21 @@ const ForgotPasswordPage = () => {
           </>
         )}
 
-        {/* STEP 2: VERIFY OTP */}
         {step === 2 && (
           <>
-            <p>OTP sent to: <strong>{email}</strong></p>
-            <label className="block text-sm font-medium text-gray-700 mb-1 mt-4">Enter OTP</label>
+            <p>
+              OTP sent to: <strong>{email}</strong>
+            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-1 mt-4">
+              Enter 4-digit OTP
+            </label>
             <input
               type="text"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))}
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-              placeholder="123456"
+              placeholder="1234"
+              maxLength={4}
             />
             <button
               onClick={handleVerifyOTP}
@@ -127,10 +125,14 @@ const ForgotPasswordPage = () => {
           </>
         )}
 
-        {/* STEP 3: RESET PASSWORD */}
         {step === 3 && (
           <>
-            <label className="block text-sm font-medium text-gray-700 mb-1 mt-4">Enter New Password</label>
+            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-700 mb-4">
+              OTP matched.
+            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Enter new password
+            </label>
             <input
               type="password"
               value={newPassword}

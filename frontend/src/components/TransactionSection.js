@@ -83,7 +83,7 @@ const TransactionSection = () => {
                           ? "text-green-600"
                           : tx.status === "Processing"
                           ? "text-yellow-600"
-                          : "text-gray-500"
+                          : "text-red-500"
                       }`}
                     >
                       {tx.status}
