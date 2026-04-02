@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 
 const Transaction = () => {
   const [transactions, setTransactions] = useState([]);
+  const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -28,11 +29,38 @@ const Transaction = () => {
 
   const [customers, setCustomers] = useState([]);
   const [receivers, setReceivers] = useState([]);
+  const [amountError, setAmountError] = useState("");
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const users_id = user.id || "User";
   const name = user.name || "User";
   const isAdmin = user.role === "admin";
+
+  const transactionRoundLimitation =
+    settings.find(
+      (item) => item.setting_key === "transaction_round_limitation"
+    )?.setting_value || "";
+  const moneyLimitation =
+    settings.find((item) => item.setting_key === "money_limitation")
+      ?.setting_value || "";
+  const totalMoneyLimitation =
+    settings.find((item) => item.setting_key === "total_money_limitation")
+      ?.setting_value || "";
+
+  useEffect(() => {
+    if (!settings.length) {
+      return;
+    }
+
+    console.log("transactionRoundLimitation:", transactionRoundLimitation);
+    console.log("moneyLimitation:", moneyLimitation);
+    console.log("totalMoneyLimitation:", totalMoneyLimitation);
+  }, [
+    settings,
+    transactionRoundLimitation,
+    moneyLimitation,
+    totalMoneyLimitation,
+  ]);
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -51,6 +79,7 @@ const Transaction = () => {
     fetchTransactions();
     fetchCustomers();
     fetchReceivers();
+    fetchSettingsForLog();
   }, []);
 
   const fetchTransactions = async () => {
@@ -82,6 +111,18 @@ const Transaction = () => {
     }
   };
 
+  const fetchSettingsForLog = async () => {
+    try {
+      const res = await axios.get("http://localhost:8081/auth/settings", {
+        withCredentials: true,
+      });
+      setSettings(Array.isArray(res.data) ? res.data : []);
+      console.log("Settings data:", res.data);
+    } catch (error) {
+      console.error("Failed to fetch settings for log:", error);
+    }
+  };
+
   const handleStatusUpdate = async (id, status) => {
     try {
       await axios.patch(`http://localhost:8081/auth/transaction/${id}`, { status });
@@ -95,6 +136,7 @@ const Transaction = () => {
 
  const handleSubmit = async (e) => {
   e.preventDefault();
+  setAmountError("");
 
   // Always set logged-in customer ID
   const dataToSend = {
@@ -105,6 +147,20 @@ const Transaction = () => {
   // Validation: account_type, amount, and either receiver_id or receiver_input
   if (!dataToSend.account_type || !dataToSend.amount || (!dataToSend.receiver_id && !dataToSend.receiver_input)) {
     alert("Please fill all required fields");
+    return;
+  }
+
+  const enteredAmount = Number(dataToSend.amount);
+  const moneyLimitValue = Number(moneyLimitation);
+
+  if (
+    Number.isFinite(moneyLimitValue) &&
+    moneyLimitValue > 0 &&
+    enteredAmount > moneyLimitValue
+  ) {
+    setAmountError(
+      `Amount exceeded. Maximum allowed amount is ${moneyLimitation}.`
+    );
     return;
   }
 
@@ -201,6 +257,39 @@ const Transaction = () => {
         </button>
       </div>
 
+      {/* <div className="mb-6 overflow-x-auto rounded-lg border bg-white shadow-sm">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-100 text-left text-gray-700">
+            <tr>
+              <th className="p-3 border">Key</th>
+              <th className="p-3 border">Value Limitation</th>
+              <th className="p-3 border">Updated At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {settings.length === 0 ? (
+              <tr>
+                <td colSpan="3" className="p-4 border text-center text-gray-500">
+                  No settings data found
+                </td>
+              </tr>
+            ) : (
+              settings.map((setting) => (
+                <tr key={setting.id}>
+                  <td className="p-3 border">{setting.setting_label}</td>
+                  <td className="p-3 border">{setting.setting_value}</td>
+                  <td className="p-3 border">
+                    {setting.updated_at
+                      ? new Date(setting.updated_at).toLocaleString()
+                      : "N/A"}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div> */}
+
       {/* Form */}
       {showForm && (
         <div className="mb-6 bg-white p-4 rounded shadow">
@@ -272,10 +361,35 @@ const Transaction = () => {
               <label className="mb-1 font-medium">Amount</label>
               <input
                 type="number"
-                className="border rounded px-3 py-2 w-40"
+                className={`rounded px-3 py-2 w-40 border ${
+                  amountError ? "border-red-500 bg-red-50" : ""
+                }`}
                 value={form.amount}
-                onChange={(e) => setForm({...form, amount: parseFloat(e.target.value)})}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const parsedValue = value === "" ? "" : parseFloat(value);
+
+                  setForm({ ...form, amount: parsedValue });
+
+                  const moneyLimitValue = Number(moneyLimitation);
+
+                  if (
+                    value !== "" &&
+                    Number.isFinite(moneyLimitValue) &&
+                    moneyLimitValue > 0 &&
+                    Number(parsedValue) > moneyLimitValue
+                  ) {
+                    setAmountError(
+                      ` Maximum amount is ${moneyLimitation}.`
+                    );
+                  } else {
+                    setAmountError("");
+                  }
+                }}
               />
+              {amountError ? (
+                <p className="mt-1 text-sm text-red-600">{amountError}</p>
+              ) : null}
             </div>
 
             {/* Submit */}

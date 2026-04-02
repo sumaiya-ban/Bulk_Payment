@@ -83,6 +83,41 @@ const ensureNotificationsTable = async () => {
   `);
 };
 
+const ensureAppSettingsTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      setting_key VARCHAR(100) NOT NULL UNIQUE,
+      setting_label VARCHAR(255) NOT NULL,
+      setting_value VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+  `);
+
+  const defaults = [
+    ["transaction_round_limitation", "Transaction Round Limitation", "10"],
+    ["money_limitation", "Money Limitation", "10000"],
+    ["total_money_limitation", "Total Money Limitation", "100000"],
+  ];
+
+  for (const [settingKey, settingLabel, settingValue] of defaults) {
+    await db.query(
+      `
+        INSERT INTO app_settings (setting_key, setting_label, setting_value)
+        SELECT ?, ?, ?
+        FROM DUAL
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM app_settings
+          WHERE setting_key = ?
+        )
+      `,
+      [settingKey, settingLabel, settingValue, settingKey]
+    );
+  }
+};
+
 const ensureTransactionStatusColumn = async () => {
   await db.query(`
     ALTER TABLE transactions
@@ -149,6 +184,7 @@ const initDatabase = async () => {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB;
     `);
+    await ensureColumn("kycVerification", "notes", "VARCHAR(255) NULL");
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS receivers (
@@ -180,6 +216,7 @@ const initDatabase = async () => {
     await ensureTransactionStatusColumn();
 
     await ensureNotificationsTable();
+    await ensureAppSettingsTable();
     await ensureTransactionNotificationTrigger();
 
     console.log("Database initialized with InnoDB");
@@ -557,7 +594,20 @@ app.post("/auth/login", async (req, res) => {
     const token = jwt.sign({ id: user.id, email: user.email, type: user.type }, process.env.JWT_SECRET || "your_secret_key", { expiresIn: "1d" });
     res.cookie("token", token, { httpOnly: true, secure: false, sameSite: "strict", maxAge: 24*60*60*1000 });
 
-    res.json({ message: "Login successful", user: { id: user.id, name: user.name, email: user.email, role: user.type } });
+    res.json({
+      message: "Login successful",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        occupation: user.occupation,
+        present_address: user.present_address,
+        country: user.country,
+        image: user.image,
+        role: user.type,
+      },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -679,7 +729,17 @@ app.post("/auth/verify-otp", async (req, res) => {
 
       return res.json({
         message: "OTP verified and login successful",
-        user: { id: user.id, name: user.name, email: user.email, role: user.type },
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          occupation: user.occupation,
+          present_address: user.present_address,
+          country: user.country,
+          image: user.image,
+          role: user.type,
+        },
       });
     }
 
@@ -729,9 +789,19 @@ app.post("/auth/reset-password", async (req, res) => {
 // ================= PROFILE =================
 app.get("/profile", authMiddleware, async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT id, email, phone, name FROM users WHERE id = ?", [req.user.id]);
+    const [rows] = await db.query(
+      `SELECT id, email, phone, name, type, present_address, country, image, occupation
+       FROM users
+       WHERE id = ?`,
+      [req.user.id]
+    );
     if (rows.length === 0) return res.status(404).json({ error: "User not found" });
-    res.json({ user: rows[0] });
+    res.json({
+      user: {
+        ...rows[0],
+        role: rows[0].type,
+      },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -760,6 +830,208 @@ app.post("/auth/kyc", authMiddleware, upload.fields([
     res.json({ message: "KYC submitted successfully" });
   } catch (err) {
     console.error("KYC submit error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.put("/auth/kyc/update", authMiddleware, upload.fields([
+  { name: "front_image", maxCount: 1 },
+  { name: "back_image", maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const { nationality, document_type, document_number } = req.body;
+
+    const [existingRows] = await db.query(
+      `SELECT id, front_image, back_image
+       FROM kycVerification
+       WHERE user_id = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: "KYC record not found" });
+    }
+
+    const existing = existingRows[0];
+    const frontImage = req.files?.front_image?.[0]?.filename || existing.front_image;
+    const backImage = req.files?.back_image?.[0]?.filename || existing.back_image;
+
+    await db.query(
+      `UPDATE kycVerification
+       SET nationality = ?,
+           document_type = ?,
+           document_number = ?,
+           front_image = ?,
+           back_image = ?,
+           status = 'pending',
+           notes = NULL,
+           verified_at = NULL
+       WHERE id = ?`,
+      [
+        nationality,
+        document_type,
+        document_number,
+        frontImage,
+        backImage,
+        existing.id,
+      ]
+    );
+
+    const [rows] = await db.query(
+      `SELECT *
+       FROM kycVerification
+       WHERE id = ?`,
+      [existing.id]
+    );
+
+    res.json({
+      message: "KYC updated successfully",
+      record: rows[0] || null,
+    });
+  } catch (err) {
+    console.error("KYC update submit error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/auth/kyc", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.type !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const [rows] = await db.query(
+      `SELECT
+         k.id,
+         k.user_id,
+         u.name,
+         u.email,
+         u.phone,
+         k.nationality,
+         k.document_type,
+         k.document_number,
+         k.front_image,
+         k.back_image,
+         k.notes,
+         k.status,
+         k.created_at,
+         k.verified_at
+       FROM kycVerification k
+       LEFT JOIN users u ON u.id = k.user_id
+       ORDER BY k.created_at DESC, k.id DESC`
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("KYC list error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.patch("/auth/kyc/:id", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.type !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const { id } = req.params;
+    const { status, notes } = req.body;
+
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ error: "Invalid KYC status" });
+    }
+
+    await db.query(
+      `UPDATE kycVerification
+       SET status = ?, notes = ?, verified_at = NOW()
+       WHERE id = ?`,
+      [status, notes || null, id]
+    );
+
+    const [rows] = await db.query(
+      `SELECT
+         k.id,
+         k.user_id,
+         u.name,
+         u.email,
+         u.phone,
+         k.nationality,
+         k.document_type,
+         k.document_number,
+         k.front_image,
+         k.back_image,
+         k.notes,
+         k.status,
+         k.created_at,
+         k.verified_at
+       FROM kycVerification k
+       LEFT JOIN users u ON u.id = k.user_id
+       WHERE k.id = ?`,
+      [id]
+    );
+
+    res.json({
+      message: `KYC ${status} successfully`,
+      record: rows[0] || null,
+    });
+  } catch (err) {
+    console.error("KYC update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/auth/settings", authMiddleware, async (req, res) => {
+  try {
+    await ensureAppSettingsTable();
+
+    const [rows] = await db.query(
+      `SELECT id, setting_key, setting_label, setting_value, updated_at
+       FROM app_settings
+       ORDER BY id ASC`
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Settings fetch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.patch("/auth/settings/:id", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.type !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const { id } = req.params;
+    const { setting_value } = req.body;
+
+    if (setting_value === undefined || setting_value === null || setting_value === "") {
+      return res.status(400).json({ error: "Setting value is required" });
+    }
+
+    await db.query(
+      `UPDATE app_settings
+       SET setting_value = ?
+       WHERE id = ?`,
+      [String(setting_value), id]
+    );
+
+    const [rows] = await db.query(
+      `SELECT id, setting_key, setting_label, setting_value, updated_at
+       FROM app_settings
+       WHERE id = ?`,
+      [id]
+    );
+
+    res.json({
+      message: "Setting updated successfully",
+      setting: rows[0] || null,
+    });
+  } catch (err) {
+    console.error("Settings update error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -797,10 +1069,23 @@ app.patch("/auth/customer/:id", uploadProfile.single("image"), async (req, res) 
       [name, phone, present_address, country, occupation, image, id]
     );
 
-   res.json({
-  message: "Customer updated successfully",
-  image: image 
-});
+    const [rows] = await db.query(
+      `SELECT id, name, email, phone, type, present_address, country, occupation, image
+       FROM users
+       WHERE id = ?`,
+      [id]
+    );
+
+    res.json({
+      message: "Customer updated successfully",
+      image,
+      user: rows[0]
+        ? {
+            ...rows[0],
+            role: rows[0].type,
+          }
+        : null,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });

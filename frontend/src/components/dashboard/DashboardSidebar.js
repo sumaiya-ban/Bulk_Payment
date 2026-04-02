@@ -28,7 +28,7 @@ const menuItems = [
     titleBn: "পেমেন্ট পাঠান",
     url: "/dashboard/send",
     icon: Send,
-    roles: ["customer"],
+    roles: ["admin", "customer"],
   },
   {
     titleEn: "Transactions",
@@ -42,7 +42,7 @@ const menuItems = [
     titleBn: "কেওয়াইসি যাচাই",
     url: "/dashboard/verification",
     icon: Send,
-    roles: ["customer"],
+    roles: ["admin", "customer"],
   },
   {
     titleEn: "Recipients",
@@ -74,6 +74,13 @@ const financeItems = [
     url: "/dashboard/wallet",
     icon: Wallet,
     roles: ["admin", "customer"],
+  },
+   {
+    titleEn: "Setting",
+    titleBn: "ওয়ালেট",
+    url: "/dashboard/setting",
+    icon: Wallet,
+    roles: ["admin"],
   },
 ];
 
@@ -226,9 +233,9 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
         <div className="mt-auto w-full p-2 border-t bg-white">
 
           <NavLink
-            to="/dashboard/settings"
+            to="/dashboard/setting"
             className={`${menuClass} ${
-              location.pathname === "/dashboard/settings"
+              location.pathname === "/dashboard/setting"
                 ? activeClass
                 : ""
             }`}

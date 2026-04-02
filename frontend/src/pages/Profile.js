@@ -40,6 +40,7 @@ const Profile = () => {
   });
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState("");
+  const [profileImage, setProfileImage] = useState(storedUser.image || "");
   const [language, setLanguage] = useState(() =>
     isCustomer
       ? localStorage.getItem("customerSidebarLanguage") || "bn"
@@ -64,6 +65,44 @@ const Profile = () => {
       );
     };
   }, [isCustomer]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const res = await axios.get("http://localhost:8081/profile", {
+          withCredentials: true,
+        });
+
+        const user = res.data?.user;
+
+        if (!user) {
+          return;
+        }
+
+        setForm({
+          name: user.name || "",
+          email: user.email || "",
+          phone: user.phone || "",
+          occupation: user.occupation || "",
+          present_address: user.present_address || "",
+          country: user.country || "",
+        });
+        setProfileImage(user.image || "");
+
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            ...storedUser,
+            ...user,
+          })
+        );
+      } catch (err) {
+        console.error("Failed to load profile", err);
+      }
+    };
+
+    loadProfile();
+  }, []);
 
   const currentText = isCustomer && language === "bn" ? profileText.bn : profileText.en;
 
@@ -96,11 +135,18 @@ const Profile = () => {
       );
 
       alert("Profile updated successfully");
-      const updatedUser = {
-        ...storedUser,
-        ...form,
-        image: res.data?.image || storedUser.image,
-      };
+      const updatedUser = res.data?.user
+        ? {
+            ...storedUser,
+            ...res.data.user,
+          }
+        : {
+            ...storedUser,
+            ...form,
+            image: res.data?.image || storedUser.image,
+          };
+
+      setProfileImage(updatedUser.image || "");
       localStorage.setItem("user", JSON.stringify(updatedUser));
     } catch (err) {
       console.error(err);
@@ -210,7 +256,9 @@ const Profile = () => {
                 className="border rounded-full w-28 h-28 object-cover bg-white"
                 src={
                   preview ||
-                  `http://localhost:8081/uploads/profiles/${storedUser.image}`
+                  (profileImage
+                    ? `http://localhost:8081/uploads/profiles/${profileImage}`
+                    : "https://via.placeholder.com/112?text=Profile")
                 }
                 alt="Profile"
               />

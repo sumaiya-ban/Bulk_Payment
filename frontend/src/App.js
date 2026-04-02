@@ -15,9 +15,10 @@ import Recipients from "./pages/Recipients";
 import CreateRecipents from "./pages/CreateRecipents";
 import EditRecipient from "./components/dashboard/EditRecipient";
 import Transaction from "./pages/Transaction";
-import KYCVerification from "./components/dashboard/KYCVerification";
+import KYCVerificationPage from "./components/dashboard/KYCVerificationPage";
 import Profile from "./pages/Profile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import Setting from "./components/dashboard/Setting";
 
 function App() {
   return (
@@ -42,8 +43,8 @@ function App() {
 <Route path="recipients/create" element={<CreateRecipents />} />
  <Route path="recipients/edit/:id" element={<EditRecipient />} />
  <Route path="transactions" element={<Transaction />}  />
- <Route path="verification" element={<KYCVerification />}  />
- <Route  />
+ <Route path="verification" element={<KYCVerificationPage />}  />
+ <Route path="setting" element={<Setting />}  />
         </Route>
 
       </Routes>
