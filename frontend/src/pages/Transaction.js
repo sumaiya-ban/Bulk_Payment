@@ -23,22 +23,37 @@ const Transaction = () => {
 
   const [filters, setFilters] = useState({
     status: "",
-    date: "",
+    dateFrom: "",
+    dateTo: "",
     search: "",
   });
 
   const [customers, setCustomers] = useState([]);
   const [receivers, setReceivers] = useState([]);
   const [amountError, setAmountError] = useState("");
+  const [roundError, setRoundError] = useState("");
+  const [kycRecord, setKycRecord] = useState(null);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [adminNote, setAdminNote] = useState("");
+  const [updatingTransaction, setUpdatingTransaction] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const users_id = user.id || "User";
   const name = user.name || "User";
   const isAdmin = user.role === "admin";
+  const currentCustomer = customers.find((customer) => customer.id === Number(users_id));
+  const isCustomerBlocked = !isAdmin && currentCustomer?.status === "inactive";
+  const isKycApproved = kycRecord?.status === "approved";
+  const isKycBlocked = !isAdmin && !isKycApproved;
+  const transactionBlockedMessage = isCustomerBlocked
+    ? "user is block by admin please contact with admin"
+    : "KYC must be submitted and approved by admin before making a transaction";
 
   const transactionRoundLimitation =
     settings.find(
-      (item) => item.setting_key === "transaction_round_limitation"
+      (item) =>
+        item.setting_key === "transaction_round" ||
+        item.setting_key === "transaction_round_limitation"
     )?.setting_value || "";
   const moneyLimitation =
     settings.find((item) => item.setting_key === "money_limitation")
@@ -46,6 +61,30 @@ const Transaction = () => {
   const totalMoneyLimitation =
     settings.find((item) => item.setting_key === "total_money_limitation")
       ?.setting_value || "";
+  const now = new Date();
+  const currentMonthTransactions = transactions.filter((tx) => {
+    if (tx.customer_id !== Number(users_id)) {
+      return false;
+    }
+
+    const txDate = new Date(tx.tnx_time);
+    return (
+      txDate.getFullYear() === now.getFullYear() &&
+      txDate.getMonth() === now.getMonth()
+    );
+  });
+  const currentUserMonthlyTotalAmount = currentMonthTransactions.reduce(
+    (sum, tx) => sum + Number(tx.amount || 0),
+    0
+  );
+  const currentUserTransactionCount = transactions.filter(
+    (tx) => tx.customer_id === Number(users_id)
+  ).length;
+  const transactionRoundLimitValue = Number(transactionRoundLimitation);
+  const hasReachedTransactionRoundLimit =
+    Number.isFinite(transactionRoundLimitValue) &&
+    transactionRoundLimitValue > 0 &&
+    currentUserTransactionCount >= transactionRoundLimitValue;
 
   useEffect(() => {
     if (!settings.length) {
@@ -80,6 +119,7 @@ const Transaction = () => {
     fetchCustomers();
     fetchReceivers();
     fetchSettingsForLog();
+    fetchKycRecord();
   }, []);
 
   const fetchTransactions = async () => {
@@ -123,20 +163,114 @@ const Transaction = () => {
     }
   };
 
-  const handleStatusUpdate = async (id, status) => {
+  const handleStatusUpdate = async (id, status, notes = "") => {
     try {
-      await axios.patch(`http://localhost:8081/auth/transaction/${id}`, { status });
+      setUpdatingTransaction(true);
+      await axios.patch(`http://localhost:8081/auth/transaction/${id}`, {
+        status,
+        notes,
+      });
       await fetchTransactions();
+      setSelectedTransaction(null);
+      setAdminNote("");
       alert(`Transaction marked as ${status}. Email notification attempted.`);
     } catch (error) {
       console.error(error);
       alert(error.response?.data?.error || "Failed to update transaction status");
+    } finally {
+      setUpdatingTransaction(false);
     }
+  };
+
+  const openTransactionModal = (transaction) => {
+    setSelectedTransaction(transaction);
+    setAdminNote(transaction.notes || "");
+  };
+
+  const closeTransactionModal = () => {
+    if (updatingTransaction) {
+      return;
+    }
+
+    setSelectedTransaction(null);
+    setAdminNote("");
+  };
+
+  const handlePrintTransaction = () => {
+    if (!selectedTransaction) {
+      return;
+    }
+
+    const doc = new jsPDF();
+    const details = [
+      ["Customer", selectedTransaction.customer_name || "Unknown"],
+      ["Receiver", selectedTransaction.receiver_name || "Unknown"],
+      ["Receiver Number", selectedTransaction.receiver_number || "N/A"],
+      ["Amount", String(selectedTransaction.amount ?? "N/A")],
+      ["Transaction ID", selectedTransaction.tnx_id || "N/A"],
+      ["Status", selectedTransaction.status || "N/A"],
+      ["Account Type", selectedTransaction.account_type || "N/A"],
+      ["Time", new Date(selectedTransaction.tnx_time).toLocaleString()],
+      ["Note", selectedTransaction.notes || "N/A"],
+    ];
+
+    doc.setFontSize(18);
+    doc.text("Transaction Details", 14, 20);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [["Field", "Value"]],
+      body: details,
+      styles: {
+        fontSize: 11,
+        cellPadding: 3,
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [37, 99, 235],
+      },
+      columnStyles: {
+        0: { cellWidth: 45, fontStyle: "bold" },
+        1: { cellWidth: 130 },
+      },
+    });
+
+    const safeTransactionId = selectedTransaction.tnx_id || `transaction-${selectedTransaction.id}`;
+    doc.save(`${safeTransactionId}.pdf`);
+  };
+
+  const fetchKycRecord = async () => {
+    if (!users_id || isAdmin) {
+      return;
+    }
+
+    try {
+      const res = await axios.get(`http://localhost:8081/auth/kyc/${users_id}`);
+      setKycRecord(res.data || null);
+    } catch (error) {
+      console.error("Failed to fetch KYC record:", error);
+      setKycRecord(null);
+    }
+  };
+
+  const handleTransactionFormToggle = () => {
+    if (isCustomerBlocked || isKycBlocked) {
+      alert(transactionBlockedMessage);
+      return;
+    }
+
+    setShowForm(!showForm);
   };
 
  const handleSubmit = async (e) => {
   e.preventDefault();
   setAmountError("");
+  setRoundError("");
+
+  if (isCustomerBlocked || isKycBlocked) {
+    alert(transactionBlockedMessage);
+    return;
+  }
 
   // Always set logged-in customer ID
   const dataToSend = {
@@ -152,6 +286,7 @@ const Transaction = () => {
 
   const enteredAmount = Number(dataToSend.amount);
   const moneyLimitValue = Number(moneyLimitation);
+  const totalMoneyLimitValue = Number(totalMoneyLimitation);
 
   if (
     Number.isFinite(moneyLimitValue) &&
@@ -160,6 +295,24 @@ const Transaction = () => {
   ) {
     setAmountError(
       `Amount exceeded. Maximum allowed amount is ${moneyLimitation}.`
+    );
+    return;
+  }
+
+  if (hasReachedTransactionRoundLimit) {
+    setRoundError(
+      `Transaction limit exceeded. You can transfer money only ${transactionRoundLimitation} times.`
+    );
+    return;
+  }
+
+  if (
+    Number.isFinite(totalMoneyLimitValue) &&
+    totalMoneyLimitValue > 0 &&
+    currentUserMonthlyTotalAmount + enteredAmount > totalMoneyLimitValue
+  ) {
+    setAmountError(
+      `Monthly total money limit exceeded. Maximum allowed total for this month is ${totalMoneyLimitation}.`
     );
     return;
   }
@@ -202,9 +355,19 @@ const Transaction = () => {
     .filter((tx) => (isAdmin ? true : tx.customer_id === Number(users_id)))
     .filter((tx) => (filters.status ? tx.status === filters.status : true))
     .filter((tx) => {
-      if (!filters.date) return true;
+      if (!filters.dateFrom && !filters.dateTo) return true;
+
       const txDate = new Date(tx.tnx_time).toISOString().split("T")[0];
-      return txDate === filters.date;
+
+      if (filters.dateFrom && txDate < filters.dateFrom) {
+        return false;
+      }
+
+      if (filters.dateTo && txDate > filters.dateTo) {
+        return false;
+      }
+
+      return true;
     })
     .filter((tx) => {
       if (!filters.search) return true;
@@ -247,15 +410,39 @@ const Transaction = () => {
     doc.save("transactions.pdf");
   };
 
+  const transactionTableColumnCount = 10;
+  const getTransactionRowClassName = (tx) => {
+    if (isAdmin && tx.status === "pending") {
+      return "bg-amber-50";
+    }
+
+    return "";
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-bold">Transactions</h1>
-        <button onClick={() => setShowForm(!showForm)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        {!isAdmin?<button
+          onClick={handleTransactionFormToggle}
+          className={`px-4 py-2 rounded text-white ${
+            isCustomerBlocked
+              ? "bg-gray-400 cursor-not-allowed"
+              : isKycBlocked
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
+        >
           {showForm ? "Close Form" : "Make Transaction"}
-        </button>
+        </button>:null}
       </div>
+
+      {isCustomerBlocked || isKycBlocked ? (
+        <p className="mb-4 text-sm text-red-600">
+          {transactionBlockedMessage}
+        </p>
+      ) : null}
 
       {/* <div className="mb-6 overflow-x-auto rounded-lg border bg-white shadow-sm">
         <table className="min-w-full text-sm">
@@ -294,6 +481,19 @@ const Transaction = () => {
       {showForm && (
         <div className="mb-6 bg-white p-4 rounded shadow">
           <h2 className="text-lg font-semibold mb-2">New Transaction</h2>
+          <div className="mb-4 flex flex-wrap gap-4 text-sm text-gray-600">
+            <p>
+              Transaction round used: {currentUserTransactionCount}
+              {transactionRoundLimitation ? ` / ${transactionRoundLimitation}` : ""}
+            </p>
+            <p>
+              Per transaction limit: {moneyLimitation || "N/A"}
+            </p>
+            <p>
+              This month total: {currentUserMonthlyTotalAmount}
+              {totalMoneyLimitation ? ` / ${totalMoneyLimitation}` : ""}
+            </p>
+          </div>
           <form className="flex flex-wrap gap-4 items-end" onSubmit={handleSubmit}>
 
             {/* Sender */}
@@ -394,11 +594,27 @@ const Transaction = () => {
 
             {/* Submit */}
             <div>
-              <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+              <button
+                type="submit"
+                disabled={
+                  hasReachedTransactionRoundLimit ||
+                  isCustomerBlocked ||
+                  isKycBlocked
+                }
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Send Money Request
               </button>
             </div>
           </form>
+          {roundError ? (
+            <p className="mt-3 text-sm text-red-600">{roundError}</p>
+          ) : null}
+          {hasReachedTransactionRoundLimit ? (
+            <p className="mt-3 text-sm text-red-600">
+              You already reached the maximum transaction round limit for this user.
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -411,7 +627,22 @@ const Transaction = () => {
           <option value="failed">Failed</option>
         </select>
 
-        <input type="date" className="border px-3 py-2 rounded" value={filters.date} onChange={(e) => setFilters({...filters, date: e.target.value})} />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">From</span>
+          <input
+            type="date"
+            className="border px-3 py-2 rounded"
+            value={filters.dateFrom}
+            onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
+          />
+          <span className="text-sm text-gray-600">to</span>
+          <input
+            type="date"
+            className="border px-3 py-2 rounded"
+            value={filters.dateTo}
+            onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
+          />
+        </div>
         <input type="text" className="border px-3 py-2 rounded" placeholder="Search name or number" value={filters.search} onChange={(e) => setFilters({...filters, search: e.target.value})} />
 
         <button className="border px-3 py-2 rounded flex items-center gap-2" onClick={downloadPDF}>
@@ -436,7 +667,6 @@ const Transaction = () => {
               <th className="p-3 border">স্টেটাস</th>
               <th className="p-3 border">অ্যাকাউন্ট ধরন</th>
               <th className="p-3 border">সময়</th>
-              <th className="p-3 border">notes</th>
               <th className="p-3 border">অ্যাকশন</th>
               
             </tr>
@@ -445,15 +675,15 @@ const Transaction = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="11" className="p-6 text-center text-gray-500">Loading transactions...</td>
+                <td colSpan={transactionTableColumnCount} className="p-6 text-center text-gray-500">Loading transactions...</td>
               </tr>
             ) : filteredData.length === 0 ? (
               <tr>
-                <td colSpan="11" className="p-6 text-center text-gray-500">No data inserted</td>
+                <td colSpan={transactionTableColumnCount} className="p-6 text-center text-gray-500">No data inserted</td>
               </tr>
             ) : (
               filteredData.map((tx) => (
-                <tr key={tx.id} className="text-center">
+                <tr key={tx.id} className={`text-center ${getTransactionRowClassName(tx)}`}>
                   <td className="p-3 border">
                     <input type="checkbox" checked={selectedRows.includes(tx.id)} onChange={() => handleRowSelect(tx.id)} />
                   </td>
@@ -470,30 +700,14 @@ const Transaction = () => {
                   </td>
                   <td className="p-3 border">{tx.account_type}</td>
                   <td className="p-3 border">{new Date(tx.tnx_time).toLocaleString()}</td>
-                  <td className="p-3 border">{tx.notes}</td>
                   <td className="p-3 border">
-                    {isAdmin && tx.status === "pending" ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleStatusUpdate(tx.id, "send")}
-                          className="rounded bg-green-600 px-3 py-1 text-white hover:bg-green-700"
-                        >
-                          Send
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleStatusUpdate(tx.id, "failed")}
-                          className="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
-                        >
-                          Failed
-                        </button>
-                      </div>
-                    ) : isAdmin ? (
-                      <span className="text-gray-500">Updated</span>
-                    ) : (
-                      <span className="text-gray-500">Admin only</span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => openTransactionModal(tx)}
+                      className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
               ))
@@ -501,6 +715,112 @@ const Transaction = () => {
           </tbody>
         </table>
       </div>
+
+      {selectedTransaction ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Transaction Details
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {isAdmin
+                    ? "Review transaction information and add note before updating status."
+                    : "Read-only transaction details for your record."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeTransactionModal}
+                disabled={updatingTransaction}
+                className="rounded border px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 text-sm text-gray-700 md:grid-cols-2">
+              <p><span className="font-semibold">Customer:</span> {selectedTransaction.customer_name || "Unknown"}</p>
+              <p><span className="font-semibold">Receiver:</span> {selectedTransaction.receiver_name || "Unknown"}</p>
+              <p><span className="font-semibold">Receiver Number:</span> {selectedTransaction.receiver_number || "N/A"}</p>
+              <p><span className="font-semibold">Amount:</span> {selectedTransaction.amount}</p>
+              <p><span className="font-semibold">Transaction ID:</span> {selectedTransaction.tnx_id || "N/A"}</p>
+              <p><span className="font-semibold">Status:</span> {selectedTransaction.status}</p>
+              <p><span className="font-semibold">Account Type:</span> {selectedTransaction.account_type}</p>
+              <p><span className="font-semibold">Time:</span> {new Date(selectedTransaction.tnx_time).toLocaleString()}</p>
+            </div>
+
+            {isAdmin ? (
+              <>
+                <div className="mt-5">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Note
+                  </label>
+                  <textarea
+                    value={adminNote}
+                    onChange={(e) => setAdminNote(e.target.value)}
+                    rows={4}
+                    className="w-full rounded border px-3 py-2"
+                    placeholder="Write note here"
+                    disabled={updatingTransaction}
+                  />
+                </div>
+
+                <div className="mt-6 flex flex-wrap justify-end gap-3">
+                  {selectedTransaction.status === "pending" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleStatusUpdate(selectedTransaction.id, "failed", adminNote)
+                        }
+                        disabled={updatingTransaction}
+                        className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {updatingTransaction ? "Saving..." : "Reject"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleStatusUpdate(selectedTransaction.id, "send", adminNote)
+                        }
+                        disabled={updatingTransaction}
+                        className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {updatingTransaction ? "Saving..." : "Send"}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-500">
+                      This transaction has already been updated.
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mt-5 rounded border bg-gray-50 p-4">
+                  <p className="mb-2 text-sm font-medium text-gray-700">Note</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {selectedTransaction.notes || "N/A"}
+                  </p>
+                </div>
+
+                <div className="mt-6 flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePrintTransaction}
+                    className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                  >
+                    Print
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

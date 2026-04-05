@@ -118,10 +118,50 @@ const ensureAppSettingsTable = async () => {
   }
 };
 
+const getSettingValueByKeys = async (keys = []) => {
+  if (!Array.isArray(keys) || keys.length === 0) {
+    return null;
+  }
+
+  const placeholders = keys.map(() => "?").join(", ");
+  const [rows] = await db.query(
+    `
+      SELECT setting_key, setting_value
+      FROM app_settings
+      WHERE setting_key IN (${placeholders})
+    `,
+    keys
+  );
+
+  for (const key of keys) {
+    const matchedRow = rows.find((row) => row.setting_key === key);
+    if (matchedRow) {
+      return matchedRow.setting_value;
+    }
+  }
+
+  return null;
+};
+
+const getNumericSettingValue = async (keys = []) => {
+  await ensureAppSettingsTable();
+  const rawValue = await getSettingValueByKeys(keys);
+  const numericValue = Number(rawValue);
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+};
+
 const ensureTransactionStatusColumn = async () => {
   await db.query(`
     ALTER TABLE transactions
     MODIFY COLUMN status ENUM('pending','send','failed') DEFAULT 'pending'
+  `);
+};
+
+const ensureUserStatusColumn = async () => {
+  await db.query(`
+    ALTER TABLE users
+    MODIFY COLUMN status ENUM('active','inactive') DEFAULT 'active'
   `);
 };
 
@@ -164,6 +204,7 @@ const initDatabase = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    await ensureUserStatusColumn();
     await ensureColumn("users", "present_address", "VARCHAR(255)");
     await ensureColumn("users", "country", "VARCHAR(100)");
     await ensureColumn("users", "image", "VARCHAR(255)");
@@ -425,6 +466,64 @@ const createNotificationForStatusChange = async (transaction, nextStatus) => {
       title,
     ]
   );
+};
+
+const createNotificationForAdminsOnTransactionRequest = async (transactionId) => {
+  await ensureNotificationsTable();
+
+  const [transactionRows] = await db.query(
+    `
+      SELECT
+        t.id,
+        t.amount,
+        t.customer_id,
+        u.name AS customer_name,
+        r.name AS receiver_name
+      FROM transactions t
+      LEFT JOIN users u ON t.customer_id = u.id
+      LEFT JOIN receivers r ON t.receiver_id = r.id
+      WHERE t.id = ?
+      LIMIT 1
+    `,
+    [transactionId]
+  );
+
+  if (transactionRows.length === 0) {
+    return;
+  }
+
+  const transaction = transactionRows[0];
+  const [adminRows] = await db.query(
+    `
+      SELECT id
+      FROM users
+      WHERE type = 'admin'
+        AND status = 'active'
+    `
+  );
+
+  const title = "New transaction request";
+  const message = `${transaction.customer_name || "A customer"} requested a transaction to ${
+    transaction.receiver_name || "the receiver"
+  } for ${Number(transaction.amount || 0).toFixed(2)}.`;
+
+  for (const admin of adminRows) {
+    await db.query(
+      `
+        INSERT INTO notifications (user_id, transaction_id, title, message)
+        SELECT ?, ?, ?, ?
+        FROM DUAL
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM notifications
+          WHERE user_id = ?
+            AND transaction_id = ?
+            AND title = ?
+        )
+      `,
+      [admin.id, transaction.id, title, message, admin.id, transaction.id, title]
+    );
+  }
 };
 
 const sendTransactionStatusEmail = async (transaction, nextStatus) => {
@@ -1054,6 +1153,7 @@ app.patch("/auth/customer/:id", uploadProfile.single("image"), async (req, res) 
   const {
     name,
     phone,
+    status,
     present_address,
     country,
     occupation
@@ -1064,13 +1164,13 @@ app.patch("/auth/customer/:id", uploadProfile.single("image"), async (req, res) 
   try {
     await db.query(
       `UPDATE users 
-       SET name=?, phone=?, present_address=?, country=?, occupation=?, image=IFNULL(?, image)
+       SET name=?, phone=?, status=?, present_address=?, country=?, occupation=?, image=IFNULL(?, image)
        WHERE id=?`,
-      [name, phone, present_address, country, occupation, image, id]
+      [name, phone, status || "active", present_address, country, occupation, image, id]
     );
 
     const [rows] = await db.query(
-      `SELECT id, name, email, phone, type, present_address, country, occupation, image
+      `SELECT id, name, email, phone, status, type, present_address, country, occupation, image
        FROM users
        WHERE id = ?`,
       [id]
@@ -1103,7 +1203,7 @@ app.get("/auth/transactions", async(req,res)=>{try{const [rows]=await db.query(`
 app.get("/auth/transactions/:userId", async(req,res)=>{const {userId}=req.params; const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id WHERE t.customer_id=? ORDER BY t.id DESC`,[userId]);res.json(rows);});
 app.patch("/auth/transaction/:id", async(req,res)=>{
   const {id}=req.params;
-  const {status}=req.body;
+  const {status, notes}=req.body;
   const normalizedStatus = normalizeTransactionStatus(status);
 
   try{
@@ -1138,7 +1238,13 @@ app.patch("/auth/transaction/:id", async(req,res)=>{
       tnx_id=null;
     }
 
-    await db.query("UPDATE transactions SET status=?, tnx_id=? WHERE id=?",[normalizedStatus,tnx_id,id]);
+    const nextNotes =
+      notes === undefined ? existingTransaction.notes : String(notes).trim() || null;
+
+    await db.query(
+      "UPDATE transactions SET status=?, tnx_id=?, notes=? WHERE id=?",
+      [normalizedStatus, tnx_id, nextNotes, id]
+    );
 
     if (existingTransaction.customer_id) {
       await createNotificationForStatusChange(existingTransaction, normalizedStatus);
@@ -1147,6 +1253,7 @@ app.patch("/auth/transaction/:id", async(req,res)=>{
           ...existingTransaction,
           status: existingTransaction.status,
           tnx_id,
+          notes: nextNotes,
         },
         normalizedStatus
       );
@@ -1231,6 +1338,118 @@ app.post("/auth/transaction", async (req, res) => {
   }
 
   try {
+    const [customerRows] = await db.query(
+      `
+        SELECT id, status
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [customer_id]
+    );
+
+    if (customerRows.length === 0) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    if (customerRows[0].status === "inactive") {
+      return res.status(403).json({
+        error: "user is block by admin please contact with admin",
+      });
+    }
+
+    const [kycRows] = await db.query(
+      `
+        SELECT status
+        FROM kycVerification
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [customer_id]
+    );
+
+    if (kycRows.length === 0) {
+      return res.status(403).json({
+        error: "KYC must be submitted and approved by admin before making a transaction",
+      });
+    }
+
+    if (kycRows[0].status !== "approved") {
+      return res.status(403).json({
+        error: "KYC must be submitted and approved by admin before making a transaction",
+      });
+    }
+
+    const transactionRoundLimit = await getNumericSettingValue([
+      "transaction_round",
+      "transaction_round_limitation",
+    ]);
+    const moneyLimit = await getNumericSettingValue(["money_limitation"]);
+    const totalMoneyLimit = await getNumericSettingValue(["total_money_limitation"]);
+    const parsedAmount = Number(amount);
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: "Amount must be a valid number" });
+    }
+
+    if (
+      Number.isFinite(moneyLimit) &&
+      moneyLimit > 0 &&
+      parsedAmount > moneyLimit
+    ) {
+      return res.status(400).json({
+        error: `Amount exceeded. Maximum allowed amount is ${moneyLimit}.`,
+      });
+    }
+
+    const [customerTransactionCountRows] = await db.query(
+      `
+        SELECT COUNT(*) AS total_transactions
+        FROM transactions
+        WHERE customer_id = ?
+      `,
+      [customer_id]
+    );
+
+    const [customerMonthlyAmountRows] = await db.query(
+      `
+        SELECT COALESCE(SUM(amount), 0) AS current_month_total_amount
+        FROM transactions
+        WHERE customer_id = ?
+          AND YEAR(tnx_time) = YEAR(CURRENT_DATE())
+          AND MONTH(tnx_time) = MONTH(CURRENT_DATE())
+      `,
+      [customer_id]
+    );
+
+    const customerTransactionSummary = customerTransactionCountRows[0] || {};
+    const customerMonthlyAmountSummary = customerMonthlyAmountRows[0] || {};
+    const usedTransactionRounds = Number(customerTransactionSummary.total_transactions || 0);
+    const usedCurrentMonthTotalAmount = Number(
+      customerMonthlyAmountSummary.current_month_total_amount || 0
+    );
+
+    if (
+      Number.isFinite(transactionRoundLimit) &&
+      transactionRoundLimit > 0 &&
+      usedTransactionRounds >= transactionRoundLimit
+    ) {
+      return res.status(400).json({
+        error: `Transaction limit exceeded. You can transfer money only ${transactionRoundLimit} times.`,
+      });
+    }
+
+    if (
+      Number.isFinite(totalMoneyLimit) &&
+      totalMoneyLimit > 0 &&
+      usedCurrentMonthTotalAmount + parsedAmount > totalMoneyLimit
+    ) {
+      return res.status(400).json({
+        error: `Monthly total money limit exceeded. Maximum allowed total for this month is ${totalMoneyLimit}.`,
+      });
+    }
+
     let receiverId = receiver_id;
 
     // If it's a new receiver, insert it into receivers table
@@ -1245,8 +1464,10 @@ app.post("/auth/transaction", async (req, res) => {
     // Insert transaction
     const [tx] = await db.query(
       "INSERT INTO transactions (customer_id, receiver_id, account_type, amount, status) VALUES (?, ?, ?, ?, ?)",
-      [customer_id, receiverId, account_type, amount, "pending"]
+      [customer_id, receiverId, account_type, parsedAmount, "pending"]
     );
+
+    await createNotificationForAdminsOnTransactionRequest(tx.insertId);
 
     res.json({ message: "Transaction created successfully", transactionId: tx.insertId });
   } catch (err) {

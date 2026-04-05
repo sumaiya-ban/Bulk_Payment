@@ -118,7 +118,7 @@ const DashboardNavbar = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const fetchNotifications = async () => {
-    if (!userId || !isCustomer) {
+    if (!userId) {
       return;
     }
 
@@ -137,21 +137,35 @@ const DashboardNavbar = () => {
 
       if (unreadNewNotifications.length > 0) {
         const latestNotification = unreadNewNotifications[0];
+        const normalizedTitle = String(latestNotification.title || "").toLowerCase();
         const isFailedNotification =
           latestNotification.transaction_status === "failed" ||
-          latestNotification.title.toLowerCase().includes("failed");
+          normalizedTitle.includes("failed");
+        const isRequestNotification = normalizedTitle.includes("request");
 
         Swal.fire({
           toast: true,
           position: "top-end",
-          icon: isFailedNotification ? "error" : "success",
+          icon: isFailedNotification
+            ? "error"
+            : isRequestNotification
+            ? "info"
+            : "success",
           title: latestNotification.title,
           text: latestNotification.message,
           showConfirmButton: false,
           timer: 3500,
           timerProgressBar: true,
-          background: isFailedNotification ? "#fee2e2" : "#dcfce7",
-          color: isFailedNotification ? "#b91c1c" : "#166534",
+          background: isFailedNotification
+            ? "#fee2e2"
+            : isRequestNotification
+            ? "#dbeafe"
+            : "#dcfce7",
+          color: isFailedNotification
+            ? "#b91c1c"
+            : isRequestNotification
+            ? "#1d4ed8"
+            : "#166534",
         });
 
         unreadNewNotifications.forEach((item) =>
@@ -189,7 +203,7 @@ const DashboardNavbar = () => {
   }, [isCustomer]);
 
   useEffect(() => {
-    if (!userId || !isCustomer) {
+    if (!userId) {
       return undefined;
     }
 
@@ -199,7 +213,7 @@ const DashboardNavbar = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [userId, isCustomer]);
+  }, [userId]);
 
   const unreadCount = notifications.filter((item) => !item.is_read).length;
 
