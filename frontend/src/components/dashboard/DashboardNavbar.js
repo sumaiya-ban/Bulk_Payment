@@ -109,11 +109,17 @@ const DashboardNavbar = () => {
     : "";
   const isCustomer = user.role === "customer";
   const userId = user.id;
-  const [language, setLanguage] = useState(() =>
-    isCustomer
-      ? localStorage.getItem("customerSidebarLanguage") || "bn"
-      : "en"
-  );
+ const [language, setLanguage] = useState(() => {
+  const savedLang = localStorage.getItem("customerSidebarLanguage");
+
+  // Always default to Bangla if nothing is saved
+  if (!savedLang) {
+    localStorage.setItem("customerSidebarLanguage", "bn");
+    return "bn";
+  }
+
+  return savedLang;
+});
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -184,23 +190,24 @@ const DashboardNavbar = () => {
   };
 
   useEffect(() => {
-    if (!isCustomer) {
-      return undefined;
-    }
+  if (!isCustomer) {
+    return undefined;
+  }
 
-    const syncLanguage = () => {
-      setLanguage(localStorage.getItem("customerSidebarLanguage") || "bn");
-    };
+  const syncLanguage = () => {
+    const lang = localStorage.getItem("customerSidebarLanguage") || "bn";
+    setLanguage(lang);
+  };
 
-    window.addEventListener("customer-sidebar-language-change", syncLanguage);
+  window.addEventListener("customer-sidebar-language-change", syncLanguage);
 
-    return () => {
-      window.removeEventListener(
-        "customer-sidebar-language-change",
-        syncLanguage
-      );
-    };
-  }, [isCustomer]);
+  return () => {
+    window.removeEventListener(
+      "customer-sidebar-language-change",
+      syncLanguage
+    );
+  };
+}, [isCustomer]);
 
   useEffect(() => {
     if (!userId) {
@@ -273,12 +280,14 @@ const DashboardNavbar = () => {
         ? currentHeader.subtitleBn || currentHeader.subtitleEn
         : currentHeader.subtitleEn;
 
-  const toggleLanguage = () => {
-    const nextLanguage = language === "bn" ? "en" : "bn";
-    setLanguage(nextLanguage);
-    localStorage.setItem("customerSidebarLanguage", nextLanguage);
-    window.dispatchEvent(new Event("customer-sidebar-language-change"));
-  };
+ const toggleLanguage = () => {
+  const nextLanguage = language === "bn" ? "en" : "bn";
+  setLanguage(nextLanguage);
+  localStorage.setItem("customerSidebarLanguage", nextLanguage);
+
+  // Trigger a shared event for the sidebar to listen
+  window.dispatchEvent(new Event("customer-sidebar-language-change"));
+};
 
   return (
     <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0">
@@ -302,7 +311,7 @@ const DashboardNavbar = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        {isCustomer && (
+       
           <button
             type="button"
             onClick={toggleLanguage}
@@ -311,7 +320,7 @@ const DashboardNavbar = () => {
             <Languages className="w-4 h-4" />
             <span>{language === "bn" ? "\u09ac\u09be\u0982\u09b2\u09be" : "English"}</span>
           </button>
-        )}
+        
 
         <div className="relative">
           <button

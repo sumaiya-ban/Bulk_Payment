@@ -3,6 +3,7 @@ import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Download } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const Transaction = () => {
   const [transactions, setTransactions] = useState([]);
@@ -36,6 +37,12 @@ const Transaction = () => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [adminNote, setAdminNote] = useState("");
   const [updatingTransaction, setUpdatingTransaction] = useState(false);
+  const [paymentTransaction, setPaymentTransaction] = useState(null);
+  const [paymentNote, setPaymentNote] = useState("");
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [startingGatewayPaymentId, setStartingGatewayPaymentId] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const users_id = user.id || "User";
@@ -122,6 +129,21 @@ const Transaction = () => {
     fetchKycRecord();
   }, []);
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const gateway = searchParams.get("gateway");
+    const paymentStatus = searchParams.get("paymentStatus");
+    const message = searchParams.get("message");
+
+    if (!gateway || !paymentStatus) {
+      return;
+    }
+
+    alert(message || `${gateway} payment status: ${paymentStatus}`);
+    fetchTransactions();
+    navigate("/dashboard/transactions", { replace: true });
+  }, [location.search, navigate]);
+
   const fetchTransactions = async () => {
     try {
       const res = await axios.get("http://localhost:8081/auth/transactions");
@@ -187,6 +209,35 @@ const Transaction = () => {
     setAdminNote(transaction.notes || "");
   };
 
+  const gatewayConfig = {
+    bkash: {
+      label: "bKash",
+      badgeClass: "bg-pink-100 text-pink-700",
+      buttonClass: "bg-pink-600 hover:bg-pink-700",
+      panelClass: "border-pink-200 bg-pink-50",
+    },
+    nagad: {
+      label: "Nagad",
+      badgeClass: "bg-orange-100 text-orange-700",
+      buttonClass: "bg-orange-600 hover:bg-orange-700",
+      panelClass: "border-orange-200 bg-orange-50",
+    },
+    rocket: {
+      label: "Rocket",
+      badgeClass: "bg-purple-100 text-purple-700",
+      buttonClass: "bg-purple-600 hover:bg-purple-700",
+      panelClass: "border-purple-200 bg-purple-50",
+    },
+  };
+
+  const getGatewayConfig = (accountType) =>
+    gatewayConfig[accountType] || {
+      label: "Payment",
+      badgeClass: "bg-slate-100 text-slate-700",
+      buttonClass: "bg-slate-700 hover:bg-slate-800",
+      panelClass: "border-slate-200 bg-slate-50",
+    };
+
   const closeTransactionModal = () => {
     if (updatingTransaction) {
       return;
@@ -194,6 +245,55 @@ const Transaction = () => {
 
     setSelectedTransaction(null);
     setAdminNote("");
+  };
+
+  const openPaymentModal = (transaction) => {
+    setPaymentTransaction(transaction);
+    setPaymentNote(transaction.notes || "");
+  };
+
+  const closePaymentModal = () => {
+    if (processingPayment) {
+      return;
+    }
+
+    setPaymentTransaction(null);
+    setPaymentNote("");
+  };
+
+  const handlePaymentAction = async (status) => {
+    if (!paymentTransaction) {
+      return;
+    }
+
+    try {
+      setProcessingPayment(true);
+      await handleStatusUpdate(paymentTransaction.id, status, paymentNote);
+      setPaymentTransaction(null);
+      setPaymentNote("");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const startBkashPayment = async (transaction) => {
+    try {
+      setStartingGatewayPaymentId(transaction.id);
+      const response = await axios.post(
+        `http://localhost:8081/auth/bkash/payment/${transaction.id}/start`
+      );
+
+      if (!response.data?.bkashURL) {
+        throw new Error("bKash URL was not returned by the server.");
+      }
+
+      window.location.assign(response.data.bkashURL);
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.error || error.message || "Failed to start bKash payment");
+    } finally {
+      setStartingGatewayPaymentId(null);
+    }
   };
 
   const handlePrintTransaction = () => {
@@ -418,6 +518,10 @@ const Transaction = () => {
 
     return "";
   };
+
+  const paymentGateway = paymentTransaction
+    ? getGatewayConfig(paymentTransaction.account_type)
+    : getGatewayConfig("");
 
   return (
     <div className="p-6">
@@ -701,13 +805,31 @@ const Transaction = () => {
                   <td className="p-3 border">{tx.account_type}</td>
                   <td className="p-3 border">{new Date(tx.tnx_time).toLocaleString()}</td>
                   <td className="p-3 border">
-                    <button
-                      type="button"
-                      onClick={() => openTransactionModal(tx)}
-                      className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
-                    >
-                      View
-                    </button>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openTransactionModal(tx)}
+                        className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+                      >
+                        View
+                      </button>
+                      {isAdmin && tx.status === "pending" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            tx.account_type === "bkash"
+                              ? startBkashPayment(tx)
+                              : openPaymentModal(tx)
+                          }
+                          disabled={startingGatewayPaymentId === tx.id}
+                          className="rounded bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {startingGatewayPaymentId === tx.id
+                            ? "Starting..."
+                            : "Send Money"}
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -742,6 +864,7 @@ const Transaction = () => {
 
             <div className="grid grid-cols-1 gap-3 text-sm text-gray-700 md:grid-cols-2">
               <p><span className="font-semibold">Customer:</span> {selectedTransaction.customer_name || "Unknown"}</p>
+              <p><span className="font-semibold">Sender Number:</span> {selectedTransaction.customer_phone || "N/A"}</p>
               <p><span className="font-semibold">Receiver:</span> {selectedTransaction.receiver_name || "Unknown"}</p>
               <p><span className="font-semibold">Receiver Number:</span> {selectedTransaction.receiver_number || "N/A"}</p>
               <p><span className="font-semibold">Amount:</span> {selectedTransaction.amount}</p>
@@ -818,6 +941,95 @@ const Transaction = () => {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {paymentTransaction ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-xl rounded-xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {paymentGateway.label} Payment Gateway
+                  </h2>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${paymentGateway.badgeClass}`}>
+                    {paymentTransaction.account_type}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  Send money from sender number to receiver number using the selected gateway.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closePaymentModal}
+                disabled={processingPayment || updatingTransaction}
+                className="rounded border px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className={`mb-5 rounded-xl border p-4 ${paymentGateway.panelClass}`}>
+              <div className="grid grid-cols-1 gap-3 text-sm text-gray-800 md:grid-cols-2">
+                <p><span className="font-semibold">Sender:</span> {paymentTransaction.customer_name || "Unknown"}</p>
+                <p><span className="font-semibold">Sender Number:</span> {paymentTransaction.customer_phone || "N/A"}</p>
+                <p><span className="font-semibold">Receiver:</span> {paymentTransaction.receiver_name || "Unknown"}</p>
+                <p><span className="font-semibold">Receiver Number:</span> {paymentTransaction.receiver_number || "N/A"}</p>
+                <p><span className="font-semibold">Amount:</span> {paymentTransaction.amount}</p>
+                <p><span className="font-semibold">Gateway:</span> {paymentGateway.label}</p>
+              </div>
+            </div>
+
+            <div className="mb-5 rounded-lg border border-dashed border-gray-300 p-4">
+              <p className="text-sm font-medium text-gray-700">Payment method</p>
+              <p className="mt-1 text-sm text-gray-600">
+                {paymentTransaction.account_type === "bkash"
+                  ? "bKash gateway selected. Use the sender bKash number to transfer to the receiver bKash wallet."
+                  : paymentTransaction.account_type === "nagad"
+                  ? "Nagad gateway selected. Use the sender Nagad number to transfer to the receiver Nagad wallet."
+                  : paymentTransaction.account_type === "rocket"
+                  ? "Rocket gateway selected. Use the sender Rocket number to transfer to the receiver Rocket wallet."
+                  : "Use the available payment method for this transaction."}
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Admin Note
+              </label>
+              <textarea
+                rows={4}
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                className="w-full rounded border px-3 py-2"
+                placeholder="Add payment reference, gateway note, or admin comment"
+                disabled={processingPayment || updatingTransaction}
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => handlePaymentAction("failed")}
+                disabled={processingPayment || updatingTransaction}
+                className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {processingPayment || updatingTransaction ? "Processing..." : "Mark Failed"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePaymentAction("send")}
+                disabled={processingPayment || updatingTransaction}
+                className={`rounded px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60 ${paymentGateway.buttonClass}`}
+              >
+                {processingPayment || updatingTransaction
+                  ? `Processing ${paymentGateway.label}...`
+                  : `Pay with ${paymentGateway.label}`}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

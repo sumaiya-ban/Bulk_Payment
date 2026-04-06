@@ -8,6 +8,7 @@ const cookieParser = require("cookie-parser");
 const mysql = require("mysql2/promise");
 const multer = require("multer");
 const fs = require("fs");
+const axios = require("axios");
 const nodemailer = require("nodemailer");
 const mailUser = process.env.GMAIL_USER || process.env.EMAIL_USER || "yourrealemail@gmail.com";
 const mailPass = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASS || "abcd efgh ijkl mnop";
@@ -35,6 +36,9 @@ const otpStore = {};
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const app = express();
 const PORT = process.env.PORT || 8081;
+const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/+$/, "");
+const BKASH_BASE_URL = (process.env.BKASH_BASE_URL || "https://tokenized.sandbox.bka.sh/v1.2.0-beta").replace(/\/+$/, "");
+const BKASH_CALLBACK_URL = process.env.BKASH_CALLBACK_URL || `http://localhost:${PORT}/auth/bkash/callback`;
 
 // ================= UPLOADS FOLDER =================
 const uploadDir = path.join(__dirname, "uploads/kyc");
@@ -172,6 +176,107 @@ const normalizeTransactionStatus = (status) => {
 
   return status;
 };
+
+const getBkashConfig = () => {
+  const config = {
+    baseUrl: BKASH_BASE_URL,
+    username: process.env.BKASH_USERNAME || "",
+    password: process.env.BKASH_PASSWORD || "",
+    appKey: process.env.BKASH_APP_KEY || "",
+    appSecret: process.env.BKASH_APP_SECRET || "",
+  };
+
+  const missing = Object.entries(config)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing bKash configuration: ${missing.join(", ")}`);
+  }
+
+  return config;
+};
+
+const buildBkashHeaders = ({ token, appKey, extraHeaders = {} }) => ({
+  Accept: "application/json",
+  "Content-Type": "application/json",
+  ...(token ? { Authorization: token } : {}),
+  ...(appKey ? { "X-App-Key": appKey, "App-Key": appKey } : {}),
+  ...extraHeaders,
+});
+
+const bkashApiRequest = async (endpoint, { method = "POST", token, body, extraHeaders = {} } = {}) => {
+  const { baseUrl, appKey } = getBkashConfig();
+  const url = `${baseUrl}${endpoint}`;
+
+  try {
+    const response = await axios({
+      url,
+      method,
+      headers: buildBkashHeaders({ token, appKey, extraHeaders }),
+      data: body,
+      responseType: "json",
+      timeout: 30000,
+    });
+
+    const data = response.data || {};
+
+    if (response.status >= 400 || data.errorCode || (data.statusCode && data.statusCode !== "0000")) {
+      const message =
+        data.errorMessage ||
+        data.statusMessage ||
+        `bKash request failed with HTTP ${response.status}`;
+      throw new Error(message);
+    }
+
+    return data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      const errData = error.response.data;
+      const message =
+        errData.errorMessage ||
+        errData.statusMessage ||
+        errData.error ||
+        `bKash request failed with HTTP ${error.response.status}`;
+      throw new Error(message);
+    }
+
+    throw new Error(error.message || "bKash request failed");
+  }
+};
+
+const grantBkashToken = async () => {
+  const { username, password, appKey, appSecret } = getBkashConfig();
+
+  return bkashApiRequest("/tokenized/checkout/token/grant", {
+    extraHeaders: {
+      username,
+      password,
+    },
+    body: {
+      app_key: appKey,
+      app_secret: appSecret,
+    },
+  });
+};
+
+const createBkashPayment = async (token, payload) =>
+  bkashApiRequest("/tokenized/checkout/create", {
+    token,
+    body: payload,
+  });
+
+const executeBkashPayment = async (token, paymentID) =>
+  bkashApiRequest("/tokenized/checkout/execute", {
+    token,
+    body: { paymentID },
+  });
+
+const queryBkashPayment = async (token, paymentID) =>
+  bkashApiRequest("/tokenized/checkout/payment/status", {
+    token,
+    body: { paymentID },
+  });
 
 const initDatabase = async () => {
   try {
@@ -1199,72 +1304,206 @@ app.patch("/auth/receiver/:id", async(req,res)=>{const {id}=req.params; const {n
 app.delete("/auth/receiver/:id", async(req,res)=>{const {id}=req.params; try{await db.query("DELETE FROM receivers WHERE id=?",[id]);res.json({message:"Receiver deleted successfully"});}catch(err){console.error(err);res.status(500).json({error:"Server error"});}});
 
 // Transactions
-app.get("/auth/transactions", async(req,res)=>{try{const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id ORDER BY t.id DESC`);res.json(rows);}catch(err){console.error(err);res.status(500).json({error:"Server error"});}});
-app.get("/auth/transactions/:userId", async(req,res)=>{const {userId}=req.params; const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id WHERE t.customer_id=? ORDER BY t.id DESC`,[userId]);res.json(rows);});
+const getTransactionWithParties = async (transactionId) => {
+  const [existingRows] = await db.query(
+    `SELECT
+       t.*,
+       u.email AS customer_email,
+       u.name AS customer_name,
+       u.phone AS customer_phone,
+       r.name AS receiver_name,
+       r.number AS receiver_number
+     FROM transactions t
+     LEFT JOIN users u ON t.customer_id = u.id
+     LEFT JOIN receivers r ON t.receiver_id = r.id
+     WHERE t.id = ?`,
+    [transactionId]
+  );
+
+  return existingRows[0] || null;
+};
+
+const updateTransactionStatusRecord = async (transactionId, status, notes, providedTransactionCode = null) => {
+  const normalizedStatus = normalizeTransactionStatus(status);
+  const existingTransaction = await getTransactionWithParties(transactionId);
+
+  if (!existingTransaction) {
+    const error = new Error("Transaction not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  let tnx_id = existingTransaction.tnx_id;
+
+  if (providedTransactionCode) {
+    tnx_id = providedTransactionCode;
+  } else if (normalizedStatus === "send" && !tnx_id) {
+    tnx_id = "TNX" + Date.now();
+  }
+
+  if (normalizedStatus === "failed") {
+    tnx_id = null;
+  }
+
+  const nextNotes =
+    notes === undefined ? existingTransaction.notes : String(notes).trim() || null;
+
+  await db.query(
+    "UPDATE transactions SET status=?, tnx_id=?, notes=? WHERE id=?",
+    [normalizedStatus, tnx_id, nextNotes, transactionId]
+  );
+
+  if (existingTransaction.customer_id) {
+    await createNotificationForStatusChange(existingTransaction, normalizedStatus);
+    await sendTransactionStatusEmail(
+      {
+        ...existingTransaction,
+        status: existingTransaction.status,
+        tnx_id,
+        notes: nextNotes,
+      },
+      normalizedStatus
+    );
+    await syncNotificationForTransaction(transactionId);
+    await syncNotificationsForUser(existingTransaction.customer_id);
+  }
+
+  return {
+    ...existingTransaction,
+    status: normalizedStatus,
+    tnx_id,
+    notes: nextNotes,
+  };
+};
+
+app.get("/auth/transactions", async(req,res)=>{try{const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, u.phone AS customer_phone, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id ORDER BY t.id DESC`);res.json(rows);}catch(err){console.error(err);res.status(500).json({error:"Server error"});}});
+app.get("/auth/transactions/:userId", async(req,res)=>{const {userId}=req.params; const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, u.phone AS customer_phone, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id WHERE t.customer_id=? ORDER BY t.id DESC`,[userId]);res.json(rows);});
 app.patch("/auth/transaction/:id", async(req,res)=>{
   const {id}=req.params;
   const {status, notes}=req.body;
-  const normalizedStatus = normalizeTransactionStatus(status);
 
   try{
     await ensureNotificationsTable();
-
-    const [existingRows] = await db.query(
-      `SELECT
-         t.*,
-         u.email AS customer_email,
-         u.name AS customer_name,
-         r.name AS receiver_name,
-         r.number AS receiver_number
-       FROM transactions t
-       LEFT JOIN users u ON t.customer_id = u.id
-       LEFT JOIN receivers r ON t.receiver_id = r.id
-       WHERE t.id = ?`,
-      [id]
-    );
-
-    if (existingRows.length === 0) {
-      return res.status(404).json({ error: "Transaction not found" });
-    }
-
-    const existingTransaction = existingRows[0];
-    let tnx_id = existingTransaction.tnx_id;
-
-    if(normalizedStatus==="send" && !tnx_id){
-      tnx_id="TNX"+Date.now();
-    }
-
-    if(normalizedStatus==="failed"){
-      tnx_id=null;
-    }
-
-    const nextNotes =
-      notes === undefined ? existingTransaction.notes : String(notes).trim() || null;
-
-    await db.query(
-      "UPDATE transactions SET status=?, tnx_id=?, notes=? WHERE id=?",
-      [normalizedStatus, tnx_id, nextNotes, id]
-    );
-
-    if (existingTransaction.customer_id) {
-      await createNotificationForStatusChange(existingTransaction, normalizedStatus);
-      await sendTransactionStatusEmail(
-        {
-          ...existingTransaction,
-          status: existingTransaction.status,
-          tnx_id,
-          notes: nextNotes,
-        },
-        normalizedStatus
-      );
-      await syncNotificationForTransaction(id);
-      await syncNotificationsForUser(existingTransaction.customer_id);
-    }
-
+    await updateTransactionStatusRecord(id, status, notes);
     res.json({message:"Transaction updated successfully"});
   }catch(err){
     console.error(err);
-    res.status(500).json({error:"Server error"});
+    res.status(err.statusCode || 500).json({error:err.message || "Server error"});
+  }
+});
+app.post("/auth/bkash/payment/:id/start", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const transaction = await getTransactionWithParties(id);
+
+    if (!transaction) {
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    if (transaction.account_type !== "bkash") {
+      return res.status(400).json({ error: "This transaction is not configured for bKash payment." });
+    }
+
+    if (transaction.status !== "pending") {
+      return res.status(400).json({ error: "Only pending transactions can be paid with bKash." });
+    }
+
+    const tokenData = await grantBkashToken();
+    const callbackUrl = new URL(BKASH_CALLBACK_URL);
+    callbackUrl.searchParams.set("transactionId", String(transaction.id));
+
+    const createResponse = await createBkashPayment(tokenData.id_token, {
+      mode: "0011",
+      payerReference: transaction.customer_phone || "",
+      callbackURL: callbackUrl.toString(),
+      amount: String(Number(transaction.amount || 0)),
+      currency: "BDT",
+      intent: "sale",
+      merchantInvoiceNumber: `TX-${transaction.id}-${Date.now()}`,
+    });
+
+    res.json({
+      paymentID: createResponse.paymentID,
+      bkashURL: createResponse.bkashURL,
+      callbackURL: createResponse.callbackURL,
+      transactionStatus: createResponse.transactionStatus,
+    });
+  } catch (err) {
+    console.error("bKash start payment error:", err);
+    res.status(500).json({ error: err.message || "Failed to start bKash payment" });
+  }
+});
+app.get("/auth/bkash/callback", async (req, res) => {
+  const { paymentID, status, transactionId } = req.query;
+  const redirectUrl = new URL(`${FRONTEND_URL}/dashboard/transactions`);
+
+  if (!paymentID) {
+    redirectUrl.searchParams.set("gateway", "bkash");
+    redirectUrl.searchParams.set("paymentStatus", "error");
+    redirectUrl.searchParams.set("message", "Missing bKash payment ID");
+    return res.redirect(redirectUrl.toString());
+  }
+
+  try {
+    const tokenData = await grantBkashToken();
+    const normalizedStatus = String(status || "").toLowerCase();
+    let finalTransactionId = Number(transactionId || 0);
+
+    if (normalizedStatus === "success") {
+      const executeResponse = await executeBkashPayment(tokenData.id_token, paymentID);
+      const invoiceMatch = executeResponse.merchantInvoiceNumber?.match(/^TX-(\d+)-/);
+
+      if (!finalTransactionId && invoiceMatch) {
+        finalTransactionId = Number(invoiceMatch[1]);
+      }
+
+      if (finalTransactionId) {
+        await updateTransactionStatusRecord(
+          finalTransactionId,
+          "send",
+          `bKash payment completed. Payment ID: ${paymentID}.`,
+          executeResponse.trxID || null
+        );
+      }
+
+      redirectUrl.searchParams.set("gateway", "bkash");
+      redirectUrl.searchParams.set("paymentStatus", "success");
+      redirectUrl.searchParams.set("message", "bKash payment completed successfully");
+      redirectUrl.searchParams.set("paymentID", paymentID);
+      if (executeResponse.trxID) {
+        redirectUrl.searchParams.set("trxID", executeResponse.trxID);
+      }
+      return res.redirect(redirectUrl.toString());
+    }
+
+    const notePrefix =
+      normalizedStatus === "cancel"
+        ? "bKash payment was cancelled by the user."
+        : "bKash payment failed.";
+
+    if (finalTransactionId) {
+      await updateTransactionStatusRecord(
+        finalTransactionId,
+        "failed",
+        `${notePrefix} Payment ID: ${paymentID}.`
+      );
+    } else {
+      await queryBkashPayment(tokenData.id_token, paymentID);
+    }
+
+    redirectUrl.searchParams.set("gateway", "bkash");
+    redirectUrl.searchParams.set("paymentStatus", normalizedStatus || "failed");
+    redirectUrl.searchParams.set("message", notePrefix);
+    redirectUrl.searchParams.set("paymentID", paymentID);
+    return res.redirect(redirectUrl.toString());
+  } catch (err) {
+    console.error("bKash callback error:", err);
+    redirectUrl.searchParams.set("gateway", "bkash");
+    redirectUrl.searchParams.set("paymentStatus", "error");
+    redirectUrl.searchParams.set("message", err.message || "Failed to verify bKash payment");
+    redirectUrl.searchParams.set("paymentID", String(paymentID));
+    return res.redirect(redirectUrl.toString());
   }
 });
 app.get("/auth/notifications/:userId", async (req, res) => {
@@ -1475,3 +1714,6 @@ app.post("/auth/transaction", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// ================= TOTAL TRANSACTION AMOUNT =================//
+

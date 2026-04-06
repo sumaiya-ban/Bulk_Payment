@@ -13,119 +13,50 @@ import {
   Menu,
 } from "lucide-react";
 
-/* ================= MENU CONFIG ================= */
-
 const menuItems = [
-  {
-    titleEn: "Overview",
-    titleBn: "ওভারভিউ",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    roles: ["admin", "customer"],
-  },
-  {
-    titleEn: "Send Payment",
-    titleBn: "পেমেন্ট পাঠান",
-    url: "/dashboard/send",
-    icon: Send,
-    roles: ["admin", "customer"],
-  },
-  {
-    titleEn: "Transactions",
-    titleBn: "লেনদেন",
-    url: "/dashboard/transactions",
-    icon: History,
-    roles: ["admin", "customer"],
-  },
-  {
-    titleEn: "KYC Verification",
-    titleBn: "কেওয়াইসি যাচাই",
-    url: "/dashboard/verification",
-    icon: Send,
-    roles: ["admin", "customer"],
-  },
-  {
-    titleEn: "Recipients",
-    titleBn: "গ্রহীতারা",
-    url: "/dashboard/recipients",
-    icon: Users,
-    roles: ["admin"],
-  },
-  {
-    titleEn: "Create Customer",
-    titleBn: "কাস্টমার তৈরি",
-    url: "/dashboard/customers",
-    icon: Users,
-    roles: ["admin"],
-  },
+  { titleEn: "Overview", titleBn: "ওভারভিউ", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "customer"] },
+  { titleEn: "Send Payment", titleBn: "পেমেন্ট পাঠান", url: "/dashboard/send", icon: Send, roles: ["admin", "customer"] },
+  { titleEn: "Transactions", titleBn: "লেনদেন", url: "/dashboard/transactions", icon: History, roles: ["admin", "customer"] },
+  { titleEn: "KYC Verification", titleBn: "কেওয়াইসি যাচাই", url: "/dashboard/verification", icon: Send, roles: ["admin", "customer"] },
+  { titleEn: "Recipients", titleBn: "গ্রহীতারা", url: "/dashboard/recipients", icon: Users, roles: ["admin"] },
+  { titleEn: "Create Customer", titleBn: "কাস্টমার তৈরি", url: "/dashboard/customers", icon: Users, roles: ["admin"] },
 ];
 
 const financeItems = [
-  {
-    titleEn: "Cards",
-    titleBn: "কার্ড",
-    url: "/dashboard/cards",
-    icon: CreditCard,
-    roles: ["admin", "customer"],
-  },
-  {
-    titleEn: "Wallet",
-    titleBn: "ওয়ালেট",
-    url: "/dashboard/wallet",
-    icon: Wallet,
-    roles: ["admin", "customer"],
-  },
-   {
-    titleEn: "Setting",
-    titleBn: "ওয়ালেট",
-    url: "/dashboard/setting",
-    icon: Wallet,
-    roles: ["admin"],
-  },
+  { titleEn: "Cards", titleBn: "কার্ড", url: "/dashboard/cards", icon: CreditCard, roles: ["admin", "customer"] },
+  { titleEn: "Wallet", titleBn: "ওয়ালেট", url: "/dashboard/wallet", icon: Wallet, roles: ["admin", "customer"] },
+  { titleEn: "Setting", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Wallet, roles: ["admin"] },
 ];
 
 const sidebarText = {
-  en: {
-    main: "MAIN",
-    finance: "FINANCE",
-    settings: "Settings",
-    logout: "Logout",
-    toggleLabel: "বাংলা",
-  },
-  bn: {
-    main: "মেইন",
-    finance: "ফাইন্যান্স",
-    settings: "সেটিংস",
-    logout: "লগআউট",
-    toggleLabel: "English",
-  },
+  en: { main: "MAIN", finance: "FINANCE", settings: "Settings", logout: "Logout", toggleLabel: "বাংলা" },
+  bn: { main: "মেইন", finance: "ফাইন্যান্স", settings: "সেটিংস", logout: "লগআউট", toggleLabel: "English" },
 };
-
-/* ================= SIDEBAR ================= */
 
 const DashboardSidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  /* GET USER ROLE */
-const user = JSON.parse(localStorage.getItem("user") || "{}");
-const role = user.role; // admin or customer
-const isCustomer = role === "customer";
-const [language, setLanguage] = useState(() => {
-  if (!isCustomer) {
-    return "en";
-  }
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const role = user.role || "admin";
+  const isCustomer = role === "customer";
 
-  return localStorage.getItem("customerSidebarLanguage") || "bn";
+  /* LANGUAGE STATE (works for all roles) */
+  const [language, setLanguage] = useState(() => {
+  const savedLang = localStorage.getItem("customerSidebarLanguage");
+  if (!savedLang) {
+    localStorage.setItem("customerSidebarLanguage", "bn");
+    return "bn";
+  }
+  return savedLang;
 });
-useEffect(() => {
-  if (!isCustomer) {
-    return undefined;
-  }
 
+// Listen for language changes
+useEffect(() => {
   const syncLanguage = () => {
-    setLanguage(localStorage.getItem("customerSidebarLanguage") || "bn");
+    const lang = localStorage.getItem("customerSidebarLanguage") || "bn";
+    setLanguage(lang);
   };
 
   window.addEventListener("customer-sidebar-language-change", syncLanguage);
@@ -133,49 +64,45 @@ useEffect(() => {
   return () => {
     window.removeEventListener("customer-sidebar-language-change", syncLanguage);
   };
-}, [isCustomer]);
- //const user = JSON.parse(localStorage.getItem("user") || "{}");
- //const role = user.type || "admin";
-  /* FILTER MENU BY ROLE */
-const filteredMain = menuItems.filter(item => role && item.roles.includes(role));
-const filteredFinance = financeItems.filter(
-  (item) => !role || item.roles.includes(role)
-);
-const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
+}, []);
+ 
 
-  const getLabel = (item) =>
-    isCustomer && language === "bn" ? item.titleBn : item.titleEn;
+  /* TOGGLE BUTTON ONLY FOR CUSTOMER */
+  const toggleLanguage = () => {
+    if (isCustomer) {
+      const nextLanguage = language === "bn" ? "en" : "bn";
+      localStorage.setItem("sidebarLanguage", nextLanguage);
+      window.dispatchEvent(new Event("sidebar-language-change"));
+    }
+  };
 
-  const menuClass =
-    "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100";
+  const filteredMain = menuItems.filter(item => role && item.roles.includes(role));
+  const filteredFinance = financeItems.filter(item => role && item.roles.includes(role));
+  const currentText = sidebarText[language]; // now admin sees language changes too
+  const getLabel = item => (language === "bn" ? item.titleBn : item.titleEn);
 
+  const menuClass = "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100";
   const activeClass = "bg-blue-100 text-blue-600";
 
   return (
     <>
       {/* Mobile Button */}
-      <button
-        className="md:hidden fixed top-4 left-4 z-50"
-        onClick={() => setMobileOpen(!mobileOpen)}
-      >
+      <button className="md:hidden fixed top-4 left-4 z-50" onClick={() => setMobileOpen(!mobileOpen)}>
         <Menu />
       </button>
 
-      {/* Sidebar */}
       <div
         className={`bg-white border-r transition-all duration-300 flex flex-col
         ${collapsed ? "w-20" : "w-64"}
         ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         fixed inset-y-0 left-0 z-40 md:sticky md:top-0 md:translate-x-0 h-screen`}
       >
-
         {/* Logo */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2 text-lg font-bold text-blue-600">
             <Zap className="w-5 h-5" />
             {!collapsed && <span>BulkPay</span>}
           </div>
-
           <button onClick={() => setCollapsed(!collapsed)}>
             <Menu size={18} />
           </button>
@@ -183,22 +110,17 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
 
         {/* Menu */}
         <div className="flex-1 overflow-y-auto p-2">
+           
 
           {/* MAIN */}
-          <p className={`text-xs text-gray-400 px-4 mb-2 ${collapsed && "hidden"}`}>
-            {currentText.main}
-          </p>
-
-          {filteredMain.map((item) => {
+          <p className={`text-xs text-gray-400 px-4 mb-2 ${collapsed && "hidden"}`}>{currentText.main}</p>
+          {filteredMain.map(item => {
             const Icon = item.icon;
-
             return (
               <NavLink
                 key={item.titleEn}
                 to={item.url}
-                className={`${menuClass} ${
-                  location.pathname === item.url ? activeClass : ""
-                }`}
+                className={`${menuClass} ${location.pathname === item.url ? activeClass : ""}`}
               >
                 <Icon size={18} />
                 {!collapsed && <span>{getLabel(item)}</span>}
@@ -207,20 +129,14 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
           })}
 
           {/* FINANCE */}
-          <p className={`text-xs text-gray-400 px-4 mt-6 mb-2 ${collapsed && "hidden"}`}>
-            {currentText.finance}
-          </p>
-
-          {filteredFinance.map((item) => {
+          <p className={`text-xs text-gray-400 px-4 mt-6 mb-2 ${collapsed && "hidden"}`}>{currentText.finance}</p>
+          {filteredFinance.map(item => {
             const Icon = item.icon;
-
             return (
               <NavLink
                 key={item.titleEn}
                 to={item.url}
-                className={`${menuClass} ${
-                  location.pathname === item.url ? activeClass : ""
-                }`}
+                className={`${menuClass} ${location.pathname === item.url ? activeClass : ""}`}
               >
                 <Icon size={18} />
                 {!collapsed && <span>{getLabel(item)}</span>}
@@ -231,14 +147,9 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
 
         {/* Footer */}
         <div className="mt-auto w-full p-2 border-t bg-white">
-
           <NavLink
             to="/dashboard/setting"
-            className={`${menuClass} ${
-              location.pathname === "/dashboard/setting"
-                ? activeClass
-                : ""
-            }`}
+            className={`${menuClass} ${location.pathname === "/dashboard/setting" ? activeClass : ""}`}
           >
             <Settings size={18} />
             {!collapsed && <span>{currentText.settings}</span>}
@@ -248,10 +159,8 @@ const currentText = isCustomer ? sidebarText[language] : sidebarText.en;
             <LogOut size={18} />
             {!collapsed && <span>{currentText.logout}</span>}
           </a>
-
         </div>
       </div>
-
     </>
   );
 };

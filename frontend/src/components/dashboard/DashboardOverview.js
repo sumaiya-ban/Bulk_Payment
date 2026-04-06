@@ -1,4 +1,7 @@
 import React from 'react';
+import { useEffect, useState } from "react";
+import axios from "axios";
+
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -11,10 +14,39 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 
+
+
+const recentTransactions = [
+  { name: "Sarah Johnson", amount: "-$2,500.00", type: "sent", date: "2 min ago", status: "Completed" },
+  { name: "Tech Corp Ltd", amount: "+$8,200.00", type: "received", date: "1 hour ago", status: "Completed" },
+  { name: "Mike Williams", amount: "-$450.00", type: "sent", date: "3 hours ago", status: "Processing" },
+];
+
+const quickRecipients = [
+  { name: "Sarah J.", initials: "SJ", color: "bg-blue-500" },
+  { name: "Mike W.", initials: "MW", color: "bg-green-500" },
+  { name: "Tech Co.", initials: "TC", color: "bg-red-500" },
+  { name: "Anna K.", initials: "AK", color: "bg-purple-500" },
+];
+
+const DashboardOverview = ({ isAdmin }) => {
+  const [totalBalance, setTotalBalance] = useState(0);
+ useEffect(() => {
+  const fetchTotal = async () => {
+    try {
+      const res = await axios.get("/api/transactions/total");
+      setTotalBalance(res.data.totalBalance); // ✅ correct key
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchTotal();
+}, []);
 const stats = [
   {
     title: "Total Balance",
-    value: "$48,250.00",
+     value: `$${totalBalance}`, 
     change: "+12.5%",
     icon: DollarSign,
   },
@@ -37,21 +69,6 @@ const stats = [
     icon: Users,
   },
 ];
-
-const recentTransactions = [
-  { name: "Sarah Johnson", amount: "-$2,500.00", type: "sent", date: "2 min ago", status: "Completed" },
-  { name: "Tech Corp Ltd", amount: "+$8,200.00", type: "received", date: "1 hour ago", status: "Completed" },
-  { name: "Mike Williams", amount: "-$450.00", type: "sent", date: "3 hours ago", status: "Processing" },
-];
-
-const quickRecipients = [
-  { name: "Sarah J.", initials: "SJ", color: "bg-blue-500" },
-  { name: "Mike W.", initials: "MW", color: "bg-green-500" },
-  { name: "Tech Co.", initials: "TC", color: "bg-red-500" },
-  { name: "Anna K.", initials: "AK", color: "bg-purple-500" },
-];
-
-const DashboardOverview = () => {
     return (
         <div className="p-6 space-y-6">
 
@@ -130,7 +147,13 @@ const DashboardOverview = () => {
 
             {/* Right Section */}
             <div className="space-y-6">
+{!isAdmin && (
+  <>
+  
 
+   <h2>hlw</h2>
+  </>
+)}
               {/* Quick Send */}
               <div className="bg-white rounded-lg shadow p-4">
                 <h2 className="font-semibold mb-4">Quick Send</h2>
