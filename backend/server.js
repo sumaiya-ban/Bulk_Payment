@@ -1717,3 +1717,80 @@ app.post("/auth/transaction", async (req, res) => {
 
 // ================= TOTAL TRANSACTION AMOUNT =================//
 
+app.get("/api/transactions/total", async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        SUM(CASE 
+              WHEN status IN ('send','success') THEN amount 
+              ELSE 0 
+            END) AS totalBalance
+      FROM transactions
+    `);
+
+    console.log("TOTAL QUERY RESULT:", rows); // ✅ DEBUG
+
+    res.json({
+      totalBalance: rows[0].totalBalance || 0
+    });
+  } catch (error) {
+    console.error("TOTAL ERROR:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+app.get("/api/users/active-count", async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT COUNT(*) AS totalUsers
+      FROM users
+      WHERE status = 'active'
+        AND type = 'customer'
+    `);
+
+    res.json({
+      totalUsers: rows[0].totalUsers || 0
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+app.get("/api/transactions/monthly", async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        SUM(amount) AS total
+      FROM transactions
+      WHERE status IN ('send','success')
+        AND tnx_time IS NOT NULL
+        AND YEAR(tnx_time) = YEAR(CURRENT_DATE())
+        AND MONTH(tnx_time) = MONTH(CURRENT_DATE())
+    `);
+
+    res.json({
+      total: rows[0].total || 0
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+app.get("/api/transactions/yearly", async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        SUM(amount) AS total
+      FROM transactions
+      WHERE status IN ('send','success')
+        AND tnx_time IS NOT NULL
+        AND YEAR(tnx_time) = YEAR(CURRENT_DATE())
+    `);
+
+    res.json({
+      total: rows[0].total || 0
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
