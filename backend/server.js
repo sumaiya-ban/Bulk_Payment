@@ -1377,7 +1377,34 @@ const updateTransactionStatusRecord = async (transactionId, status, notes, provi
 };
 
 app.get("/auth/transactions", async(req,res)=>{try{const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, u.phone AS customer_phone, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id ORDER BY t.id DESC`);res.json(rows);}catch(err){console.error(err);res.status(500).json({error:"Server error"});}});
-app.get("/auth/transactions/:userId", async(req,res)=>{const {userId}=req.params; const [rows]=await db.query(`SELECT t.*, u.name AS customer_name, u.phone AS customer_phone, r.name AS receiver_name, r.number AS receiver_number FROM transactions t LEFT JOIN users u ON t.customer_id=u.id LEFT JOIN receivers r ON t.receiver_id=r.id WHERE t.customer_id=? ORDER BY t.id DESC`,[userId]);res.json(rows);});
+app.get("/auth/transactions/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { status } = req.query;
+    const filters = ["t.customer_id = ?"];
+    const params = [userId];
+
+    if (status) {
+      filters.push("t.status = ?");
+      params.push(status);
+    }
+
+    const [rows] = await db.query(
+      `SELECT t.*, u.name AS customer_name, u.phone AS customer_phone, r.name AS receiver_name, r.number AS receiver_number
+       FROM transactions t
+       LEFT JOIN users u ON t.customer_id = u.id
+       LEFT JOIN receivers r ON t.receiver_id = r.id
+       WHERE ${filters.join(" AND ")}
+       ORDER BY t.id DESC`,
+      params
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 app.patch("/auth/transaction/:id", async(req,res)=>{
   const {id}=req.params;
   const {status, notes}=req.body;
@@ -1719,16 +1746,31 @@ app.post("/auth/transaction", async (req, res) => {
 
 app.get("/api/transactions/total", async (req, res) => {
   try {
-    const [rows] = await db.execute(`
-      SELECT 
-        SUM(CASE 
-              WHEN status IN ('send','success') THEN amount 
-              ELSE 0 
-            END) AS totalBalance
-      FROM transactions
-    `);
+    const { customer_id, status } = req.query;
+    const filters = [];
+    const params = [];
 
-    console.log("TOTAL QUERY RESULT:", rows); // ✅ DEBUG
+    if (customer_id) {
+      filters.push("customer_id = ?");
+      params.push(customer_id);
+    }
+
+    if (status) {
+      filters.push("status = ?");
+      params.push(status);
+    }
+
+    const amountExpression = status
+      ? "SUM(amount) AS totalBalance"
+      : "SUM(CASE WHEN status IN ('send','success') THEN amount ELSE 0 END) AS totalBalance";
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "WHERE status IN ('send','success')";
+
+    const [rows] = await db.execute(`
+      SELECT ${amountExpression}
+      FROM transactions
+      ${whereClause}
+    `, params);
 
     res.json({
       totalBalance: rows[0].totalBalance || 0
@@ -1757,15 +1799,28 @@ app.get("/api/users/active-count", async (req, res) => {
 });
 app.get("/api/transactions/monthly", async (req, res) => {
   try {
+    const { customer_id, status } = req.query;
+    const filters = ["tnx_time IS NOT NULL", "YEAR(tnx_time) = YEAR(CURRENT_DATE())", "MONTH(tnx_time) = MONTH(CURRENT_DATE())"];
+    const params = [];
+
+    if (customer_id) {
+      filters.push("customer_id = ?");
+      params.push(customer_id);
+    }
+
+    if (status) {
+      filters.push("status = ?");
+      params.push(status);
+    } else {
+      filters.push("status IN ('send','success')");
+    }
+
     const [rows] = await db.execute(`
       SELECT 
         SUM(amount) AS total
       FROM transactions
-      WHERE status IN ('send','success')
-        AND tnx_time IS NOT NULL
-        AND YEAR(tnx_time) = YEAR(CURRENT_DATE())
-        AND MONTH(tnx_time) = MONTH(CURRENT_DATE())
-    `);
+      WHERE ${filters.join(" AND ")}
+    `, params);
 
     res.json({
       total: rows[0].total || 0
@@ -1777,14 +1832,28 @@ app.get("/api/transactions/monthly", async (req, res) => {
 });
 app.get("/api/transactions/yearly", async (req, res) => {
   try {
+    const { customer_id, status } = req.query;
+    const filters = ["tnx_time IS NOT NULL", "YEAR(tnx_time) = YEAR(CURRENT_DATE())"];
+    const params = [];
+
+    if (customer_id) {
+      filters.push("customer_id = ?");
+      params.push(customer_id);
+    }
+
+    if (status) {
+      filters.push("status = ?");
+      params.push(status);
+    } else {
+      filters.push("status IN ('send','success')");
+    }
+
     const [rows] = await db.execute(`
       SELECT 
         SUM(amount) AS total
       FROM transactions
-      WHERE status IN ('send','success')
-        AND tnx_time IS NOT NULL
-        AND YEAR(tnx_time) = YEAR(CURRENT_DATE())
-    `);
+      WHERE ${filters.join(" AND ")}
+    `, params);
 
     res.json({
       total: rows[0].total || 0
