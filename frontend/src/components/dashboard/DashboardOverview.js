@@ -1,7 +1,16 @@
 import React from 'react';
 import { useEffect, useState } from "react";
 import axios from "axios";
-
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -32,22 +41,25 @@ const DashboardOverview = () => {
   const [monthlyTotal, setMonthlyTotal] = useState(0);
   const [yearlyTotal, setYearlyTotal] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [dailyData, setDailyData] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (isAdmin) {
-          const [balanceRes, userRes, monthlyRes, yearlyRes] = await Promise.all([
+          const [balanceRes, userRes, monthlyRes, yearlyRes, dailyRes] = await Promise.all([
             axios.get("http://localhost:8081/api/transactions/total"),
             axios.get("http://localhost:8081/api/users/active-count"),
             axios.get("http://localhost:8081/api/transactions/monthly"),
             axios.get("http://localhost:8081/api/transactions/yearly"),
+            axios.get("http://localhost:8081/api/transactions/daily"),
           ]);
 
           setTotalBalance(balanceRes.data.totalBalance || 0);
           setTotalUsers(userRes.data.totalUsers || 0);
           setMonthlyTotal(monthlyRes.data.total || 0);
           setYearlyTotal(yearlyRes.data.total || 0);
+          setDailyData(dailyRes.data || []);
         } else if (isCustomer) {
           const [balanceRes, monthlyRes, yearlyRes, recentRes] = await Promise.all([
             axios.get(`http://localhost:8081/api/transactions/total?customer_id=${user.id}`),
@@ -129,156 +141,139 @@ const DashboardOverview = () => {
         },
       ];
 
+  const cardColors = [
+    "bg-orange-50 border-orange-200",
+    "bg-green-50 border-green-200",
+    "bg-blue-50 border-blue-200",
+    "bg-yellow-50 border-yellow-200",
+  ];
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
 
       {/* Stats */}
       {(isAdmin || isCustomer) && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, i) => (
-            <div key={i} className="bg-white rounded-lg shadow p-5">
+            <div key={i} className={`rounded-xl p-5 shadow-sm border ${cardColors[i]}`}>
               <div className="flex justify-between mb-3">
-                <div className="p-2 bg-gray-100 rounded">
-                  <stat.icon className="w-5 h-5 text-blue-600" />
+                <div className="p-2 bg-white rounded-lg shadow-sm">
+                  <stat.icon className="w-5 h-5 text-gray-700" />
                 </div>
                 <span className="flex items-center text-green-500 text-xs">
                   <TrendingUp className="w-3 h-3 mr-1" />
                   {stat.change}
                 </span>
               </div>
-              <h2 className="text-2xl font-bold">{stat.value}</h2>
-              <p className="text-xs text-gray-500">{stat.title}</p>
+              <h2 className="text-2xl font-bold text-gray-800">{stat.value}</h2>
+              <p className="text-xs text-gray-600">{stat.title}</p>
+              
             </div>
           ))}
         </div>
       )}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Transactions */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow">
-          <div className="flex justify-between items-center p-4 border-b">
-            <h2 className="font-semibold">Recent Transactions</h2>
-            <MoreHorizontal className="w-5 h-5 text-gray-400" />
-          </div>
-          <div>
-            {isCustomer && recentTransactions.length === 0 ? (
-              <div className="p-4 text-gray-500">No sent transactions found for your account.</div>
-            ) : (
-              recentTransactions.map((tx, i) => (
-                <div
-                  key={i}
-                  className="flex justify-between items-center p-4 hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-3">
 
-                    <div
-                      className={`p-2 rounded-full ${
+      {isAdmin ? (
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <h2 className="font-semibold mb-4">Daily Transaction Amounts</h2>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={dailyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="day" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="amount" fill="#8884d8" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="grid lg:grid-cols-3 gap-6">
+
+          {/* Transactions */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="font-semibold">Recent Transactions</h2>
+              <MoreHorizontal className="w-5 h-5 text-gray-400" />
+            </div>
+
+            <div>
+              {isCustomer && recentTransactions.length === 0 ? (
+                <div className="p-4 text-gray-500">No sent transactions found for your account.</div>
+              ) : (
+                recentTransactions.map((tx, i) => (
+                  <div key={i} className="flex justify-between items-center p-4 hover:bg-gray-50 border-b last:border-none">
+                    <div className="flex items-center gap-3">
+
+                      <div className={`p-2 rounded-full ${
                         tx.type === "sent"
-                          ? "bg-red-100 text-red-600"
-                          : "bg-green-100 text-green-600"
-                      }`}
-                    >
-                      {tx.type === "sent" ? (
-                        <ArrowUpRight className="w-4 h-4" />
-                      ) : (
-                        <ArrowDownLeft className="w-4 h-4" />
-                      )}
+                          ? "bg-red-100 text-red-500"
+                          : "bg-green-100 text-green-500"
+                      }`}>
+                        {tx.type === "sent" ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownLeft className="w-4 h-4" />
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium">{tx.name}</p>
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {tx.date}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="text-sm font-medium">{tx.name}</p>
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {tx.date}
-                      </p>
+                    <div className="text-right">
+                      <p className="font-semibold">{tx.amount}</p>
+                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        {tx.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Right Section */}
+          <div className="space-y-6">
+            {isCustomer && (
+              <>
+                <div className="bg-white rounded-xl shadow-sm border p-4">
+                  <h2 className="font-semibold mb-4">Quick Send</h2>
+
+                  <div className="flex gap-3 mb-4">
+                    {quickRecipients.map((r, i) => (
+                      <div key={i} className="text-center">
+                        <div className={`w-10 h-10 ${r.color} text-white rounded-full flex items-center justify-center`}>
+                          {r.initials}
+                        </div>
+                        <p className="text-xs text-gray-500">{r.name}</p>
+                      </div>
+                    ))}
+
+                    <div className="text-center">
+                      <div className="w-10 h-10 border border-dashed flex items-center justify-center rounded-full">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                      <p className="text-xs text-gray-500">Add</p>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="font-semibold">{tx.amount}</p>
-                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                      {tx.status}
-                    </span>
-                  </div>
+                  <button className="w-full flex items-center justify-center gap-2 bg-orange-500 text-white py-2 rounded-lg">
+                    <Send className="w-4 h-4" />
+                    Send Money
+                  </button>
                 </div>
-              ))
+              </>
             )}
           </div>
+
         </div>
-
-        {/* Right Section */}
-        <div className="space-y-6">
-          {isCustomer && (
-            <>
-              {/* Quick Send */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="font-semibold mb-4">Quick Send</h2>
-
-                <div className="flex gap-3 mb-4">
-                  {quickRecipients.map((r, i) => (
-                    <div key={i} className="text-center">
-                      <div
-                        className={`w-10 h-10 ${r.color} text-white rounded-full flex items-center justify-center`}
-                      >
-                        {r.initials}
-                      </div>
-                      <p className="text-xs text-gray-500">{r.name}</p>
-                    </div>
-                  ))}
-
-                  <div className="text-center">
-                    <div className="w-10 h-10 border border-dashed flex items-center justify-center rounded-full">
-                      <Plus className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs text-gray-500">Add</p>
-                  </div>
-                </div>
-
-                <button className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded">
-                  <Send className="w-4 h-4" />
-                  Send Money
-                </button>
-              </div>
-
-              {/* Budget */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="font-semibold mb-4">Monthly Budget</h2>
-
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Payroll</span>
-                      <span>$18,400 / $25,000</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded h-2">
-                      <div className="bg-blue-600 h-2 rounded w-[73%]"></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Vendors</span>
-                      <span>$8,200 / $15,000</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded h-2">
-                      <div className="bg-blue-600 h-2 rounded w-[55%]"></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Operations</span>
-                      <span>$3,500 / $10,000</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded h-2">
-                      <div className="bg-blue-600 h-2 rounded w-[35%]"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 };

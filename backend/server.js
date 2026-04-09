@@ -1863,3 +1863,46 @@ app.get("/api/transactions/yearly", async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 });
+
+app.get("/api/transactions/daily", async (req, res) => {
+  try {
+    const { customer_id, status } = req.query;
+    const filters = ["tnx_time IS NOT NULL", "YEAR(tnx_time) = YEAR(CURRENT_DATE())", "MONTH(tnx_time) = MONTH(CURRENT_DATE())"];
+    const params = [];
+
+    if (customer_id) {
+      filters.push("customer_id = ?");
+      params.push(customer_id);
+    }
+
+    if (status) {
+      filters.push("status = ?");
+      params.push(status);
+    } else {
+      filters.push("status IN ('send','success')");
+    }
+
+    const [rows] = await db.execute(`
+      SELECT 
+        DAY(tnx_time) AS day,
+        SUM(amount) AS amount
+      FROM transactions
+      WHERE ${filters.join(" AND ")}
+      GROUP BY DAY(tnx_time)
+      ORDER BY day
+    `, params);
+
+    // Create array for all days 1-30, fill with 0 if no data
+    const dailyData = Array.from({ length: 30 }, (_, i) => ({ day: i + 1, amount: 0 }));
+    rows.forEach(row => {
+      if (row.day >= 1 && row.day <= 30) {
+        dailyData[row.day - 1].amount = row.amount;
+      }
+    });
+
+    res.json(dailyData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});

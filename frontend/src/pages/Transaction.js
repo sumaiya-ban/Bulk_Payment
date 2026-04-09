@@ -763,7 +763,7 @@ const Transaction = () => {
                 <input type="checkbox" onChange={(e) => handleSelectAll(e.target.checked)} />
               </th>
               {/* <th className="p-3 border">আইডি</th> */}
-              <th className="p-3 border">কাস্টমার</th>
+              <th className="p-3 border ">কাস্টমার</th>
               <th className="p-3 border">গ্রহীতা</th>
               <th className="p-3 border">গ্রহীতার নম্বর</th>
               <th className="p-3 border">পরিমাণ</th>
@@ -792,7 +792,7 @@ const Transaction = () => {
                     <input type="checkbox" checked={selectedRows.includes(tx.id)} onChange={() => handleRowSelect(tx.id)} />
                   </td>
                   {/* <td className="p-3 border">{tx.id}</td> */}
-                  <td className="p-3 border">{tx.customer_name || "Unknown"}</td>
+                  <td className="p-3 border text-nowrap">{tx.customer_name || "Unknown"}</td>
                   <td className="p-3 border">{tx.receiver_name || "Unknown"}</td>
                   <td className="p-3 border">{tx.receiver_number || "N/A"}</td>
                   <td className="p-3 border">{tx.amount}</td>
