@@ -141,11 +141,31 @@ const DashboardOverview = () => {
         },
       ];
 
-  const cardColors = [
-    "bg-orange-50 border-orange-200",
-    "bg-green-50 border-green-200",
-    "bg-blue-50 border-blue-200",
-    "bg-yellow-50 border-yellow-200",
+  const cardStyles = [
+    {
+      wrapper: "bg-gradient-to-br from-blue-600 via-sky-500 to-cyan-400 text-white border-transparent",
+      iconBg: "bg-white/20",
+      iconColor: "text-white",
+      changeColor: "text-white",
+    },
+    {
+      wrapper: "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 text-white border-transparent",
+      iconBg: "bg-white/20",
+      iconColor: "text-white",
+      changeColor: "text-white",
+    },
+    {
+      wrapper: "bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-500 text-white border-transparent",
+      iconBg: "bg-white/20",
+      iconColor: "text-white",
+      changeColor: "text-white",
+    },
+    {
+      wrapper: "bg-gradient-to-br from-yellow-400 via-orange-300 to-amber-200 text-slate-900 border-transparent",
+      iconBg: "bg-white/25",
+      iconColor: "text-slate-900",
+      changeColor: "text-slate-900",
+    },
   ];
 
   return (
@@ -155,35 +175,45 @@ const DashboardOverview = () => {
       {(isAdmin || isCustomer) && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, i) => (
-            <div key={i} className={`rounded-xl p-5 shadow-sm border ${cardColors[i]}`}>
-              <div className="flex justify-between mb-3">
-                <div className="p-2 bg-white rounded-lg shadow-sm">
-                  <stat.icon className="w-5 h-5 text-gray-700" />
+            <div
+              key={i}
+              className={`relative overflow-hidden rounded-[2rem] p-5 shadow-2xl border ${cardStyles[i].wrapper} transform transition-all duration-300 hover:scale-105 hover:shadow-[0_25px_80px_rgba(15,23,42,0.15)]`}>
+              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/20 blur-3xl" />
+              <div className="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-white/15 blur-3xl" />
+
+              <div className="relative flex justify-between mb-4">
+                <div className={`p-3 rounded-2xl ${cardStyles[i].iconBg} shadow-sm`}> 
+                  <stat.icon className={`w-6 h-6 ${cardStyles[i].iconColor}`} />
                 </div>
-                <span className="flex items-center text-green-500 text-xs">
+                <span className={`flex items-center ${cardStyles[i].changeColor} text-xs font-semibold`}> 
                   <TrendingUp className="w-3 h-3 mr-1" />
                   {stat.change}
                 </span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-800">{stat.value}</h2>
-              <p className="text-xs text-gray-600">{stat.title}</p>
-              
+              <div className="relative">
+                <h2 className="text-3xl font-bold">{stat.value}</h2>
+                <p className="text-xs font-semibold opacity-90">{stat.title}</p>
+              </div>
             </div>
           ))}
         </div>
       )}
 
       {isAdmin ? (
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <h2 className="font-semibold mb-4">Daily Transaction Amounts</h2>
+        <div className="bg-sky-50 rounded-xl shadow-md border border-slate-200 p-6 hover:shadow-xl transition-shadow">
+          <h2 className="font-bold text-lg mb-1 text-slate-900">Daily Transaction Amounts</h2>
+          <p className="text-sm text-slate-600 mb-4">Total transaction volume by day</p>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={dailyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="amount" fill="#8884d8" />
+            <BarChart data={dailyData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="day" stroke="#64748b" />
+              <YAxis stroke="#64748b" />
+              <Tooltip 
+                contentStyle={{ backgroundColor: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "12px", color: "#0f172a" }}
+                cursor={{ fill: "rgba(59, 130, 246, 0.08)" }}
+              />
+              <Legend wrapperStyle={{ paddingTop: "20px" }} />
+              <Bar dataKey="amount" fill="#2563eb" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

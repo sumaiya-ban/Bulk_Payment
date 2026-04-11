@@ -4,7 +4,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Download } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-
+import { Eye } from "lucide-react";
 const Transaction = () => {
   const [transactions, setTransactions] = useState([]);
   const [settings, setSettings] = useState([]);
@@ -13,7 +13,33 @@ const Transaction = () => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const [selectedRows, setSelectedRows] = useState([]);
+const formatDateTime = (dateString) => {
+  const date = new Date(dateString);
 
+  // Day with suffix
+  const day = date.getDate();
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+      ? "nd"
+      : day % 10 === 3 && day !== 13
+      ? "rd"
+      : "th";
+
+  const month = date.toLocaleString("en-GB", { month: "long" });
+  const year = date.getFullYear();
+
+  // 12-hour time
+  const time = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  return `${day}${suffix} ${month} ${year}, ${time}`;
+};
   const [form, setForm] = useState({
     receiver_id: "",
     receiver_input: "",
@@ -228,6 +254,12 @@ const Transaction = () => {
       buttonClass: "bg-purple-600 hover:bg-purple-700",
       panelClass: "border-purple-200 bg-purple-50",
     },
+    sslcommerz: {
+      label: "SSLCommerz",
+      badgeClass: "bg-green-100 text-green-700",
+      buttonClass: "bg-green-600 hover:bg-green-700",
+      panelClass: "border-green-200 bg-green-50",
+    },
   };
 
   const getGatewayConfig = (accountType) =>
@@ -291,6 +323,44 @@ const Transaction = () => {
     } catch (error) {
       console.error(error);
       alert(error.response?.data?.error || error.message || "Failed to start bKash payment");
+    } finally {
+      setStartingGatewayPaymentId(null);
+    }
+  };
+
+  const startSSLCommerzPayment = async (transaction) => {
+    try {
+      setStartingGatewayPaymentId(transaction.id);
+      const response = await axios.post(
+        `http://localhost:8081/auth/sslcommerz/payment/${transaction.id}/start`
+      );
+
+      const paymentUrl =
+        response.data?.paymentUrl ||
+        response.data?.GatewayPageURL ||
+        response.data?.gw_pageURL ||
+        response.data?.redirect_url ||
+        response.data?.payment_url ||
+        response.data?.url;
+
+      if (!paymentUrl) {
+        throw new Error("SSLCommerz gateway URL was not returned by the server.");
+      }
+
+      window.location.assign(paymentUrl);
+    } catch (error) {
+      console.error("SSLCommerz Error:", error.response?.data || error.message);
+      const errorMsg =
+        error.response?.data?.error ||
+        error.response?.data?.details ||
+        error.message ||
+        "Failed to open SSLCommerz payment gateway";
+      
+      const detailsMsg = error.response?.data?.details 
+        ? `\n\nServer Response: ${JSON.stringify(error.response.data.details, null, 2)}`
+        : "";
+      
+      alert(`${errorMsg}${detailsMsg}`);
     } finally {
       setStartingGatewayPaymentId(null);
     }
@@ -550,7 +620,7 @@ const Transaction = () => {
 
       {/* <div className="mb-6 overflow-x-auto rounded-lg border bg-white shadow-sm">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-100 text-left text-gray-700">
+          <thead className="bg-blue-600 text-left text-white">
             <tr>
               <th className="p-3 border">Key</th>
               <th className="p-3 border">Value Limitation</th>
@@ -757,26 +827,26 @@ const Transaction = () => {
       {/* Transactions Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full border bg-white">
-          <thead className="bg-gray-100">
-            <tr>
+          <thead className="bg-gray-200 text-black">
+            <tr className="text-nowrap">
               <th className="p-3 border">
-                <input type="checkbox" onChange={(e) => handleSelectAll(e.target.checked)} />
+                <input type="checkbox" onChange={(e) => handleSelectAll(e.target.checked)} className="accent-white" />
               </th>
               {/* <th className="p-3 border">আইডি</th> */}
-              <th className="p-3 border ">কাস্টমার</th>
-              <th className="p-3 border">গ্রহীতা</th>
-              <th className="p-3 border">গ্রহীতার নম্বর</th>
-              <th className="p-3 border">পরিমাণ</th>
-              <th className="p-3 border">ট্রানজেকশন আইডি</th>
-              <th className="p-3 border">স্টেটাস</th>
-              <th className="p-3 border">অ্যাকাউন্ট ধরন</th>
-              <th className="p-3 border">সময়</th>
-              <th className="p-3 border">অ্যাকশন</th>
+              <th className="p-3 border font-semibold">কাস্টমার</th>
+              <th className="p-3 border font-semibold">গ্রহীতা</th>
+              <th className="p-3 border font-semibold ">গ্রহীতার নম্বর</th>
+              <th className="p-3 border font-semibold">পরিমাণ</th>
+              <th className="p-3 border font-semibold">ট্রানজেকশন আইডি</th>
+              <th className="p-3 border font-semibold">স্টেটাস</th>
+              <th className="p-3 border font-semibold">অ্যাকাউন্ট ধরন</th>
+              <th className="p-3 border font-semibold">সময়</th>
+              <th className="p-3 border font-semibold">অ্যাকশন</th>
               
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="border border-black">
             {loading ? (
               <tr>
                 <td colSpan={transactionTableColumnCount} className="p-6 text-center text-gray-500">Loading transactions...</td>
@@ -803,15 +873,17 @@ const Transaction = () => {
                     </span>
                   </td>
                   <td className="p-3 border">{tx.account_type}</td>
-                  <td className="p-3 border">{new Date(tx.tnx_time).toLocaleString()}</td>
+                <td className="p-3 border">
+  {formatDateTime(tx.tnx_time)}
+</td>
                   <td className="p-3 border">
-                    <div className="flex flex-wrap items-center justify-center gap-2">
+                    <div className="flex  items-center justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => openTransactionModal(tx)}
-                        className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+                        className="rounded  px-1 py-1 text-black border border-black "
                       >
-                        View
+                        <Eye size={18} />
                       </button>
                       {isAdmin && tx.status === "pending" ? (
                         <button
@@ -826,7 +898,7 @@ const Transaction = () => {
                         >
                           {startingGatewayPaymentId === tx.id
                             ? "Starting..."
-                            : "Send Money"}
+                            : "Send"}
                         </button>
                       ) : null}
                     </div>
@@ -1028,6 +1100,16 @@ const Transaction = () => {
                 {processingPayment || updatingTransaction
                   ? `Processing ${paymentGateway.label}...`
                   : `Pay with ${paymentGateway.label}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => startSSLCommerzPayment(paymentTransaction)}
+                disabled={processingPayment || updatingTransaction || startingGatewayPaymentId === paymentTransaction?.id}
+                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {startingGatewayPaymentId === paymentTransaction?.id
+                  ? "Opening..."
+                  : "Open SSLCommerz Gateway"}
               </button>
             </div>
           </div>

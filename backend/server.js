@@ -278,6 +278,128 @@ const queryBkashPayment = async (token, paymentID) =>
     body: { paymentID },
   });
 
+// SSLCommerz Configuration & Helpers
+const SSLCOMMERZ_STORE_ID =
+  process.env.SSLCOMMERZ_STORE_ID || "testbox";
+
+const SSLCOMMERZ_STORE_PASSWORD =
+  process.env.SSLCOMMERZ_STORE_PASSWORD || "qwerty";
+
+const SSLCOMMERZ_API_URL = (
+  process.env.SSLCOMMERZ_API_URL ||
+  "https://sandbox.sslcommerz.com/gwprocess/v4/api.php"
+).replace(/\/+$/, "");
+
+const initiateSSLCommerzPayment = async (transactionData) => {
+  try {
+    console.log("\n" + "=".repeat(60));
+    console.log("[SSLCommerz] PAYMENT INITIATION");
+    console.log("=".repeat(60));
+
+    // ✅ SAFE & VALID PAYLOAD
+    const payload = {
+      store_id: SSLCOMMERZ_STORE_ID,
+      store_passwd: SSLCOMMERZ_STORE_PASSWORD,
+
+      total_amount: Number(transactionData.amount) || 10,
+      currency: "BDT",
+
+      // ✅ ALWAYS UNIQUE
+      tran_id: `TXN-${Date.now()}`,
+
+      success_url: transactionData.successUrl,
+      fail_url: transactionData.failUrl || transactionData.successUrl,
+      cancel_url: transactionData.cancelUrl,
+
+      // ✅ SAFE FALLBACK VALUES
+      cus_name: transactionData.customerName || "Test User",
+      cus_email: transactionData.customerEmail || "test@gmail.com",
+      cus_phone: transactionData.customerPhone || "01700000000",
+
+      cus_add1: "Dhaka",
+      cus_city: "Dhaka",
+      cus_state: "Dhaka",
+      cus_postcode: "1000",
+      cus_country: "Bangladesh",
+
+      shipping_method: "NO",
+      product_name: "Transaction Payment",
+      product_category: "Payment",
+      product_profile: "general",
+    };
+
+    console.log("[SSLCommerz] Payload:", {
+      ...payload,
+      store_passwd: "***HIDDEN***",
+    });
+
+    // ✅ CONVERT TO URL-ENCODED
+    const formDataString = Object.keys(payload)
+      .map(
+        (key) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(payload[key])}`
+      )
+      .join("&");
+
+    const response = await axios.post(
+      SSLCOMMERZ_API_URL,
+      formDataString,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        timeout: 15000,
+      }
+    );
+
+    console.log("[SSLCommerz] RESPONSE:", response.data);
+
+    // ✅ FIXED STATUS CHECK (IMPORTANT)
+    if (response.data?.status?.toLowerCase() !== "success") {
+      const errorDetail =
+        response.data?.failedreason ||
+        response.data?.reason ||
+        JSON.stringify(response.data);
+
+      throw new Error(errorDetail);
+    }
+
+    // ✅ EXTRACT PAYMENT URL (VERY IMPORTANT)
+   const paymentUrl =
+  response.data.redirectGatewayURL ||
+  response.data.GatewayPageURL ||
+  response.data.gatewayPageURL ||
+  response.data.redirect_url ||
+  response.data.gw_page_url ||
+  response.data.url;
+
+if (!paymentUrl) {
+  console.error("SSL RESPONSE:", response.data);
+  throw new Error("No payment gateway URL returned from SSLCommerz");
+}
+    console.log("[SSLCommerz] Redirect URL:", paymentUrl);
+
+    // ✅ RETURN CLEAN RESPONSE
+    return {
+      success: true,
+      paymentUrl,
+      fullResponse: response.data,
+    };
+  } catch (error) {
+    console.error("\n" + "=".repeat(60));
+    console.error("[SSLCommerz] ERROR:");
+    console.error(error.response?.data || error.message);
+    console.error("=".repeat(60) + "\n");
+
+    throw new Error(
+      `Failed to initiate SSLCommerz payment: ${
+        error.response?.data?.failedreason ||
+        error.message
+      }`
+    );
+  }
+};
+
 const initDatabase = async () => {
   try {
     const serverConnection = await mysql.createConnection({
@@ -1461,6 +1583,82 @@ app.post("/auth/bkash/payment/:id/start", async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to start bKash payment" });
   }
 });
+
+app.post("/auth/sslcommerz/payment/:id/start", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    console.log("\n=== SSLCommerz Payment Initiation Started ===");
+    console.log("Transaction ID:", id);
+
+    // Validate transaction
+    const transaction = await getTransactionWithParties(id);
+    if (!transaction) {
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    if (transaction.status !== "pending") {
+      return res.status(400).json({ error: "Only pending transactions can be processed" });
+    }
+
+    console.log("Transaction found:", {
+      id: transaction.id,
+      amount: transaction.amount,
+      customerName: transaction.customer_name,
+      customerPhone: transaction.customer_phone,
+    });
+
+    // Prepare payment data
+    const successUrl = process.env.SSLCOMMERZ_SUCCESS_URL || `${FRONTEND_URL}/dashboard/transactions?gateway=sslcommerz&status=success`;
+    const failUrl = process.env.SSLCOMMERZ_FAIL_URL || `${FRONTEND_URL}/dashboard/transactions?gateway=sslcommerz&status=fail`;
+    const cancelUrl = process.env.SSLCOMMERZ_CANCEL_URL || `${FRONTEND_URL}/dashboard/transactions?gateway=sslcommerz&status=cancel`;
+
+    const paymentData = {
+      invoiceNo: `TX-${transaction.id}-${Date.now()}`,
+      customerName: transaction.customer_name || "Customer",
+      customerPhone: transaction.customer_phone || "01700000000",
+      customerEmail: transaction.customer_email || "customer@example.com",
+      amount: String(Math.round(Number(transaction.amount) * 100) / 100),
+      successUrl,
+      failUrl,
+      cancelUrl,
+    };
+
+    console.log("Payment Data:", paymentData);
+
+    let paymentResponse;
+    try {
+      paymentResponse = await initiateSSLCommerzPayment(paymentData);
+      console.log("✓ Payment initiated successfully");
+    } catch (paymentError) {
+      console.error("✗ Payment initiation failed:", paymentError.message);
+      return res.status(500).json({ error: paymentError.message });
+    }
+
+    // Extract gateway URL
+    console.log("\n--- Extracting Gateway URL ---");
+    const gatewayUrl = paymentResponse?.GatewayPageURL || paymentResponse?.gw_pageURL || paymentResponse?.redirect_url;
+
+    if (!gatewayUrl) {
+      console.error("✗ No gateway URL found in response:", paymentResponse);
+      return res.status(500).json({
+        error: "No payment gateway URL returned",
+        availableFields: Object.keys(paymentResponse || {}),
+      });
+    }
+
+    console.log("✓ Gateway URL extracted:", gatewayUrl);
+    console.log("=== SSLCommerz Payment Initiation Complete ===\n");
+
+    res.json({ paymentUrl: gatewayUrl });
+  } catch (err) {
+    console.error("\n✗ Unhandled Error:", err.message);
+    res.status(500).json({ error: err.message || "Payment initiation failed" });
+  }
+});
+
+
+
 app.get("/auth/bkash/callback", async (req, res) => {
   const { paymentID, status, transactionId } = req.query;
   const redirectUrl = new URL(`${FRONTEND_URL}/dashboard/transactions`);

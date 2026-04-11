@@ -290,22 +290,22 @@ const DashboardNavbar = () => {
 };
 
   return (
-    <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0">
+    <header className="h-16 bg-sky-100 text-slate-900 border-b-0 flex items-center justify-between px-6 shrink-0 shadow-lg">
       <div className="flex items-center gap-3 min-w-0">
         {currentHeader.backTo && (
           <button
             type="button"
             onClick={() => navigate(currentHeader.backTo)}
-            className="p-2 rounded hover:bg-gray-100"
+            className="p-2 rounded hover:bg-blue-700 text-white transition"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
         )}
 
         <div className="min-w-0">
-          <h1 className="text-lg font-bold">{title}</h1>
+          <h1 className="text-lg font-bold text-slate-900">{title}</h1>
           {subtitle && (
-            <p className="text-xs text-gray-500 truncate">{subtitle}</p>
+            <p className="text-xs text-slate-900 truncate">{subtitle}</p>
           )}
         </div>
       </div>
@@ -315,7 +315,7 @@ const DashboardNavbar = () => {
           <button
             type="button"
             onClick={toggleLanguage}
-            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-lg border border-slate-900 px-3 py-2 text-sm font-medium text-slate-900 hover:bg-blue-700 transition"
           >
             <Languages className="w-4 h-4" />
             <span>{language === "bn" ? "\u09ac\u09be\u0982\u09b2\u09be" : "English"}</span>
@@ -326,9 +326,9 @@ const DashboardNavbar = () => {
           <button
             type="button"
             onClick={handleBellClick}
-            className="relative rounded-full p-2 hover:bg-gray-100"
+            className="relative rounded-full p-2 hover:bg-blue-700 transition"
           >
-            <Bell className="w-5 h-5 text-gray-600" />
+            <Bell className="w-5 h-5 text-slate-900" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 min-w-4 bg-red-500 text-white text-[10px] px-1 rounded-full text-center">
                 {unreadCount}
@@ -337,7 +337,7 @@ const DashboardNavbar = () => {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white shadow-lg z-50">
+            <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-slate-900 shadow-lg z-50">
               <div className="flex items-center justify-between border-b px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold">Notifications</p>
@@ -361,7 +361,7 @@ const DashboardNavbar = () => {
 
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <div className="px-4 py-6 text-sm text-gray-500">
+                  <div className="px-4 py-6 text-sm text-slate-900">
                     No notifications yet.
                   </div>
                 ) : (
@@ -375,10 +375,10 @@ const DashboardNavbar = () => {
                       <p className="text-sm font-medium text-gray-900">
                         {item.title}
                       </p>
-                      <p className="mt-1 text-xs text-gray-600">
+                      <p className="mt-1 text-xs text-slate-900">
                         {item.message}
                       </p>
-                      <p className="mt-2 text-[11px] text-gray-400">
+                      <p className="mt-2 text-[11px] text-slate-900">
                         {formatNotificationTime(item.created_at)}
                       </p>
                     </div>
@@ -391,25 +391,25 @@ const DashboardNavbar = () => {
 
         <div
           onClick={() => navigate("/dashboard/profile")}
-          className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+          className="flex items-center gap-2 cursor-pointer hover:bg-blue-700 px-2 py-1 rounded transition text-slate-900"
         >
           {profileImageUrl ? (
             <img
               src={profileImageUrl}
               alt={name}
-              className="w-8 h-8 rounded-full object-cover border"
+              className="w-8 h-8 rounded-full object-cover border border-blue-300"
             />
           ) : (
-            <UserCircle className="w-6 h-6 text-gray-700" />
+            <UserCircle className="w-6 h-6 text-blue-100" />
           )}
-          <span className="text-sm font-medium hidden sm:block">{name}</span>
+          <span className="text-sm font-medium hidden sm:block text-slate-900">{name}</span>
         </div>
 
         {currentHeader.action && (
           <button
             type="button"
             onClick={() => currentHeader.action.onClick(navigate)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded"
+            className="flex items-center gap-2 bg-white text-blue-600 px-4 py-2 rounded font-semibold hover:brightness-95 transition"
           >
             {ActionIcon && <ActionIcon className="w-4 h-4" />}
             {isCustomer && language === "bn"

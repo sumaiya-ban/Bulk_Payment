@@ -81,30 +81,30 @@ useEffect(() => {
   const currentText = sidebarText[language]; // now admin sees language changes too
   const getLabel = item => (language === "bn" ? item.titleBn : item.titleEn);
 
-  const menuClass = "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100";
-  const activeClass = "bg-blue-100 text-blue-600";
+  const menuClass = "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-200 text-slate-900 transition-colors";
+  const activeClass = "bg-blue-200 text-blue-900";
 
   return (
     <>
       {/* Mobile Button */}
-      <button className="md:hidden fixed top-4 left-4 z-50" onClick={() => setMobileOpen(!mobileOpen)}>
+      <button className="md:hidden fixed top-4 left-4 z-50 text-blue-900" onClick={() => setMobileOpen(!mobileOpen)}>
         <Menu />
       </button>
 
       <div
-        className={`bg-white border-r transition-all duration-300 flex flex-col
+        className={`bg-sky-100 text-slate-900 border-r border-sky-200 transition-all duration-300 flex flex-col
         ${collapsed ? "w-20" : "w-64"}
         ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         fixed inset-y-0 left-0 z-40 md:sticky md:top-0 md:translate-x-0 h-screen`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2 text-lg font-bold text-blue-600">
-            <Zap className="w-5 h-5" />
+        <div className="flex items-center justify-between p-4 border-b border-sky-200">
+          <div className="flex items-center gap-2 text-lg font-bold text-blue-900">
+            <Zap className="w-5 h-5 text-blue-900" />
             {!collapsed && <span>BulkPay</span>}
           </div>
           <button onClick={() => setCollapsed(!collapsed)}>
-            <Menu size={18} />
+            <Menu size={18} className="text-white" />
           </button>
         </div>
 
@@ -113,7 +113,7 @@ useEffect(() => {
            
 
           {/* MAIN */}
-          <p className={`text-xs text-gray-400 px-4 mb-2 ${collapsed && "hidden"}`}>{currentText.main}</p>
+          <p className={`text-xs text-blue-300 px-4 mb-2 ${collapsed && "hidden"}`}>{currentText.main}</p>
           {filteredMain.map(item => {
             const Icon = item.icon;
             return (
@@ -129,7 +129,7 @@ useEffect(() => {
           })}
 
           {/* FINANCE */}
-          <p className={`text-xs text-gray-400 px-4 mt-6 mb-2 ${collapsed && "hidden"}`}>{currentText.finance}</p>
+          <p className={`text-xs text-blue-300 px-4 mt-6 mb-2 ${collapsed && "hidden"}`}>{currentText.finance}</p>
           {filteredFinance.map(item => {
             const Icon = item.icon;
             return (
@@ -146,7 +146,7 @@ useEffect(() => {
         </div>
 
         {/* Footer */}
-        <div className="mt-auto w-full p-2 border-t bg-white">
+        <div className="mt-auto w-full p-2 border-t border-blue-800">
           <NavLink
             to="/dashboard/setting"
             className={`${menuClass} ${location.pathname === "/dashboard/setting" ? activeClass : ""}`}

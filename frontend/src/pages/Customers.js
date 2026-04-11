@@ -65,24 +65,24 @@ const fetchCustomers = async () => {
           ) : (
             <div className="w-full overflow-y-auto">
   <table className="min-w-[700px] overflow-y-auto  w-full bg-white rounded-lg shadow divide-y divide-gray-200">
-     <thead className="bg-gray-50">
+     <thead className="bg-blue-600 text-white">
       <tr>
-        <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">
+        <th className="px-6 py-3 text-left text-sm font-semibold">
           Name
         </th>
-        <th className="px-6 py-3 text-center text-sm font-medium text-gray-700">
+        <th className="px-6 py-3 text-center text-sm font-semibold">
           Email
         </th>
-        <th className="px-6 py-3 text-center text-sm font-medium text-gray-700">
+        <th className="px-6 py-3 text-center text-sm font-semibold">
           Phone
         </th>
-        <th className="px-6 py-3 text-center text-sm font-medium text-gray-700 ">
+        <th className="px-6 py-3 text-center text-sm font-semibold">
           Created
         </th>
-        <th className="px-6 py-3 text-center text-sm font-medium text-gray-700 ">
+        <th className="px-6 py-3 text-center text-sm font-semibold">
           Status
         </th>
-        <th className="px-6 py-3 text-center text-sm font-medium text-gray-700">
+        <th className="px-6 py-3 text-center text-sm font-semibold">
           Actions
         </th>
       </tr>
