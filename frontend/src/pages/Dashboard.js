@@ -4,17 +4,22 @@ import { Outlet } from "react-router-dom";
 
 const Dashboard = () => {
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
 
       {/* Sidebar */}
       <DashboardSidebar />
 
       {/* Main Body */}
-      <div className="flex-1 bg-gray-50 overflow-auto flex flex-col">
+      <div className="flex-1 flex flex-col">
+
+        {/* Navbar */}
         <DashboardNavbar />
-        <div className="flex-1 overflow-auto">
+
+        {/* ONLY ONE SCROLL AREA */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
           <Outlet />
         </div>
+
       </div>
 
     </div>

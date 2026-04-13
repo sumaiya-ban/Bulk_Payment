@@ -20,12 +20,13 @@ const menuItems = [
   { titleEn: "KYC Verification", titleBn: "কেওয়াইসি যাচাই", url: "/dashboard/verification", icon: Send, roles: ["admin", "customer"] },
   { titleEn: "Recipients", titleBn: "গ্রহীতারা", url: "/dashboard/recipients", icon: Users, roles: ["admin"] },
   { titleEn: "Create Customer", titleBn: "কাস্টমার তৈরি", url: "/dashboard/customers", icon: Users, roles: ["admin"] },
+  { titleEn: "Setting", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Wallet, roles: ["admin"] },
 ];
 
 const financeItems = [
-  { titleEn: "Cards", titleBn: "কার্ড", url: "/dashboard/cards", icon: CreditCard, roles: ["admin", "customer"] },
-  { titleEn: "Wallet", titleBn: "ওয়ালেট", url: "/dashboard/wallet", icon: Wallet, roles: ["admin", "customer"] },
-  { titleEn: "Setting", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Wallet, roles: ["admin"] },
+  // { titleEn: "Cards", titleBn: "কার্ড", url: "/dashboard/cards", icon: CreditCard, roles: ["admin", "customer"] },
+  // { titleEn: "Wallet", titleBn: "ওয়ালেট", url: "/dashboard/wallet", icon: Wallet, roles: ["admin", "customer"] },
+  
 ];
 
 const sidebarText = {
@@ -81,8 +82,8 @@ useEffect(() => {
   const currentText = sidebarText[language]; // now admin sees language changes too
   const getLabel = item => (language === "bn" ? item.titleBn : item.titleEn);
 
-  const menuClass = "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-200 text-slate-900 transition-colors";
-  const activeClass = "bg-blue-200 text-blue-900";
+  const menuClass = "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-green-200 text-black transition-colors";
+  const activeClass = "bg-sidebar-active text-white";
 
   return (
     <>
@@ -92,19 +93,19 @@ useEffect(() => {
       </button>
 
       <div
-        className={`bg-sky-100 text-slate-900 border-r border-sky-200 transition-all duration-300 flex flex-col
+        className={`bg-green-100 text-green-200 border-r border-sidebar-text transition-all duration-300 flex flex-col
         ${collapsed ? "w-20" : "w-64"}
         ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         fixed inset-y-0 left-0 z-40 md:sticky md:top-0 md:translate-x-0 h-screen`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between p-4 border-b border-sky-200">
-          <div className="flex items-center gap-2 text-lg font-bold text-blue-900">
+        <div className="flex items-center justify-between p-4 border-b border-green-200">
+          <div className="flex items-center gap-2 text-lg font-bold text-green-900">
             <Zap className="w-5 h-5 text-blue-900" />
             {!collapsed && <span>BulkPay</span>}
           </div>
           <button onClick={() => setCollapsed(!collapsed)}>
-            <Menu size={18} className="text-white" />
+            <Menu size={18} className="text-green-800" />
           </button>
         </div>
 
@@ -113,7 +114,7 @@ useEffect(() => {
            
 
           {/* MAIN */}
-          <p className={`text-xs text-blue-300 px-4 mb-2 ${collapsed && "hidden"}`}>{currentText.main}</p>
+          <p className={`text-xs text-green-800 px-4 mb-2 ${collapsed && "hidden"}`}>{currentText.main}</p>
           {filteredMain.map(item => {
             const Icon = item.icon;
             return (
@@ -128,32 +129,12 @@ useEffect(() => {
             );
           })}
 
-          {/* FINANCE */}
-          <p className={`text-xs text-blue-300 px-4 mt-6 mb-2 ${collapsed && "hidden"}`}>{currentText.finance}</p>
-          {filteredFinance.map(item => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.titleEn}
-                to={item.url}
-                className={`${menuClass} ${location.pathname === item.url ? activeClass : ""}`}
-              >
-                <Icon size={18} />
-                {!collapsed && <span>{getLabel(item)}</span>}
-              </NavLink>
-            );
-          })}
+         
         </div>
 
         {/* Footer */}
-        <div className="mt-auto w-full p-2 border-t border-blue-800">
-          <NavLink
-            to="/dashboard/setting"
-            className={`${menuClass} ${location.pathname === "/dashboard/setting" ? activeClass : ""}`}
-          >
-            <Settings size={18} />
-            {!collapsed && <span>{currentText.settings}</span>}
-          </NavLink>
+        <div className="mt-auto w-full p-2 border-t border-green-800">
+          
 
           <a href="/" className={menuClass}>
             <LogOut size={18} />

@@ -11,7 +11,8 @@ const Customers = () => {
   useEffect(() => {
   fetchCustomers();
 }, []);
-
+const [currentPage, setCurrentPage] = useState(1);
+const rowsPerPage = 5;
 const fetchCustomers = async () => {
   try {
     const res = await axios.get("http://localhost:8081/auth/customers");
@@ -20,7 +21,14 @@ const fetchCustomers = async () => {
     console.error("Error fetching customers", error);
   }
 };
+const totalPages = Math.ceil(customers.length / rowsPerPage);
 
+const startIndex = (currentPage - 1) * rowsPerPage;
+
+const paginatedCustomers = customers.slice(
+  startIndex,
+  startIndex + rowsPerPage
+);
  
  const handleDelete = async (id) => {
   const result = await Swal.fire({
@@ -63,9 +71,9 @@ const fetchCustomers = async () => {
               </button>
             </div>
           ) : (
-            <div className="w-full overflow-y-auto">
+            <div className="w-full overflow-y-auto ">
   <table className="min-w-[700px] overflow-y-auto  w-full bg-white rounded-lg shadow divide-y divide-gray-200">
-     <thead className="bg-blue-600 text-white">
+     <thead className="bg-gray-200 text-black">
       <tr>
         <th className="px-6 py-3 text-left text-sm font-semibold">
           Name
@@ -89,7 +97,7 @@ const fetchCustomers = async () => {
     </thead>
 
     <tbody className="divide-y divide-gray-200 ">
-      {customers.map((customer) => (
+      {paginatedCustomers.map((customer) => (
         <tr key={customer.id} className="hover:bg-gray-50">
           <td className="px-6 py-4 whitespace-nowrap text-left text-gray-800 font-medium">{customer.name}</td>
 
@@ -141,6 +149,31 @@ const fetchCustomers = async () => {
     </tbody>
 
   </table>
+  <div className="flex items-center justify-between mt-4 px-2">
+  <p className="text-sm text-gray-600">
+    Page {currentPage} of {totalPages || 1}
+  </p>
+
+  <div className="flex gap-2">
+    <button
+      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+      disabled={currentPage === 1}
+      className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+    >
+      Prev
+    </button>
+
+    <button
+      onClick={() =>
+        setCurrentPage((p) => Math.min(p + 1, totalPages))
+      }
+      disabled={currentPage === totalPages}
+      className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+    >
+      Next
+    </button>
+  </div>
+</div>
 </div>
           )}
     </div>

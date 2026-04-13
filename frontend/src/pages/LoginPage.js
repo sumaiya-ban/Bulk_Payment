@@ -32,62 +32,103 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900">Login</h2>
+    <div className="min-h-screen flex">
 
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
+      {/* LEFT SIDE (Blur Image) */}
+      <div className="hidden md:flex w-1/2 relative overflow-hidden">
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <img
+          src="../transaction.jpg" // 👉 same image
+          alt="bg"
+          className="absolute inset-0 w-full h-full object-cover blur-sm scale-110"
+        />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              placeholder="********"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div className="absolute inset-0 bg-black/60"></div>
 
-          <div className="mb-4">
-            <Link to="/forgot-password" className="text-blue-600 hover:underline">
-              Forget Password?
-            </Link>
-          </div>
+        <div className="relative z-10 p-12 flex flex-col justify-center">
+          <h1 className="text-3xl font-bold text-white mb-6">
+            Get great rates in less than five minutes
+          </h1>
 
-          <button
-            type="submit"
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
-          >
+          <ul className="space-y-4 text-white text-sm">
+            <li>✔ Better Exchange Rates</li>
+            <li>✔ Low Transaction Fee</li>
+            <li>✔ No Hidden Fees</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* RIGHT SIDE */}
+      <div className="w-full md:w-1/2 flex items-center justify-center bg-gradient-to-br from-purple-200 via-pink-100 to-indigo-200">
+        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 text-center">
             Login
-          </button>
+          </h2>
 
-          <div>
-            Don't you have any account?
-            <Link to="/register" className="font-bold">
-              Register
-            </Link>
-          </div>
-        </form>
+          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+          {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
+
+          <form className="space-y-4" onSubmit={handleSubmit}>
+
+            {/* EMAIL */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                placeholder="Enter email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+            </div>
+
+            {/* PASSWORD */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+            </div>
+
+            {/* FORGOT */}
+            <div className="text-right">
+              <Link
+                to="/forgot-password"
+                className="text-purple-600 text-sm hover:underline"
+              >
+                Forget Password?
+              </Link>
+            </div>
+
+            {/* BUTTON */}
+            <button
+              type="submit"
+              className="w-full py-2 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:opacity-90 transition"
+            >
+              Login
+            </button>
+
+            {/* REGISTER */}
+            <div className="text-center text-sm">
+              Don't you have any account?{" "}
+              <Link to="/register" className="font-semibold text-purple-600">
+                Register
+              </Link>
+            </div>
+
+          </form>
+        </div>
       </div>
     </div>
   );

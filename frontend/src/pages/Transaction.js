@@ -11,10 +11,18 @@ const Transaction = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-
+const [currentPage, setCurrentPage] = useState(1);
+const itemsPerPage = 10;
   const [selectedRows, setSelectedRows] = useState([]);
 const formatDateTime = (dateString) => {
   const date = new Date(dateString);
+const indexOfLastItem = currentPage * itemsPerPage;
+const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+const currentTransactions = filteredData.slice(
+  indexOfFirstItem,
+  indexOfLastItem
+);
 
   // Day with suffix
   const day = date.getDate();
@@ -154,7 +162,9 @@ const formatDateTime = (dateString) => {
     fetchSettingsForLog();
     fetchKycRecord();
   }, []);
-
+useEffect(() => {
+  setCurrentPage(1);
+}, [filters, transactions]);
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const gateway = searchParams.get("gateway");
@@ -550,7 +560,13 @@ const formatDateTime = (dateString) => {
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
   };
+const indexOfLastItem = currentPage * itemsPerPage;
+const indexOfFirstItem = indexOfLastItem - itemsPerPage;
 
+const currentTransactions = filteredData.slice(
+  indexOfFirstItem,
+  indexOfLastItem
+);
   const handleSelectAll = (checked) => {
     setSelectedRows(checked ? filteredData.map((t) => t.id) : []);
   };
@@ -793,8 +809,8 @@ const formatDateTime = (dateString) => {
       )}
 
       {/* Filters & Download */}
-      <div className="flex gap-4 mb-4">
-        <select className="border px-3 py-2 rounded" value={filters.status} onChange={(e) => setFilters({...filters, status: e.target.value})}>
+      <div className="flex gap-4 mb-4 ">
+        <select className="border border-gray-400 px-3 py-2 rounded" value={filters.status} onChange={(e) => setFilters({...filters, status: e.target.value})}>
           <option value="">All Status</option>
           <option value="pending">Pending</option>
           <option value="send">Success</option>
@@ -805,21 +821,21 @@ const formatDateTime = (dateString) => {
           <span className="text-sm text-gray-600">From</span>
           <input
             type="date"
-            className="border px-3 py-2 rounded"
+            className="border border-gray-400 px-3 py-2 rounded"
             value={filters.dateFrom}
             onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
           />
           <span className="text-sm text-gray-600">to</span>
           <input
             type="date"
-            className="border px-3 py-2 rounded"
+            className="border border-gray-400 px-3 py-2 rounded"
             value={filters.dateTo}
             onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
           />
         </div>
-        <input type="text" className="border px-3 py-2 rounded" placeholder="Search name or number" value={filters.search} onChange={(e) => setFilters({...filters, search: e.target.value})} />
+        <input type="text" className="border border-gray-400 px-3 py-2 rounded" placeholder="Search name or number" value={filters.search} onChange={(e) => setFilters({...filters, search: e.target.value})} />
 
-        <button className="border px-3 py-2 rounded flex items-center gap-2" onClick={downloadPDF}>
+        <button className="border border-gray-400 px-3 py-2 rounded flex items-center gap-2" onClick={downloadPDF}>
           Download Data Table <Download size={16} />
         </button>
       </div>
@@ -832,6 +848,7 @@ const formatDateTime = (dateString) => {
               <th className="p-3 border">
                 <input type="checkbox" onChange={(e) => handleSelectAll(e.target.checked)} className="accent-white" />
               </th>
+               <th className="p-3 border font-semibold">no.</th>
               {/* <th className="p-3 border">আইডি</th> */}
               <th className="p-3 border font-semibold">কাস্টমার</th>
               <th className="p-3 border font-semibold">গ্রহীতা</th>
@@ -841,11 +858,10 @@ const formatDateTime = (dateString) => {
               <th className="p-3 border font-semibold">স্টেটাস</th>
               <th className="p-3 border font-semibold">অ্যাকাউন্ট ধরন</th>
               <th className="p-3 border font-semibold">সময়</th>
-              <th className="p-3 border font-semibold">অ্যাকশন</th>
+              <th className="p-3 border font-semibold sticky right-0 bg-gray-200 z-10">অ্যাকশন</th>
               
             </tr>
           </thead>
-
           <tbody className="border border-black">
             {loading ? (
               <tr>
@@ -856,11 +872,14 @@ const formatDateTime = (dateString) => {
                 <td colSpan={transactionTableColumnCount} className="p-6 text-center text-gray-500">No data inserted</td>
               </tr>
             ) : (
-              filteredData.map((tx) => (
+              currentTransactions.map((tx, index) => (
                 <tr key={tx.id} className={`text-center ${getTransactionRowClassName(tx)}`}>
                   <td className="p-3 border">
                     <input type="checkbox" checked={selectedRows.includes(tx.id)} onChange={() => handleRowSelect(tx.id)} />
                   </td>
+                  <td className="p-3 border text-nowrap">
+ {indexOfFirstItem + index + 1}
+</td>
                   {/* <td className="p-3 border">{tx.id}</td> */}
                   <td className="p-3 border text-nowrap">{tx.customer_name || "Unknown"}</td>
                   <td className="p-3 border">{tx.receiver_name || "Unknown"}</td>
@@ -873,10 +892,10 @@ const formatDateTime = (dateString) => {
                     </span>
                   </td>
                   <td className="p-3 border">{tx.account_type}</td>
-                <td className="p-3 border">
+                <td className="p-3 border text-nowrap ">
   {formatDateTime(tx.tnx_time)}
 </td>
-                  <td className="p-3 border">
+                  <td className="p-3 border sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
                     <div className="flex  items-center justify-center gap-2">
                       <button
                         type="button"
@@ -908,6 +927,39 @@ const formatDateTime = (dateString) => {
             )}
           </tbody>
         </table>
+        <div className="flex justify-center items-center gap-2 mt-4">
+  <button
+    className="px-3 py-1 border rounded disabled:opacity-50"
+    disabled={currentPage === 1}
+    onClick={() => setCurrentPage((prev) => prev - 1)}
+  >
+    Prev
+  </button>
+
+  {Array.from({
+    length: Math.ceil(filteredData.length / itemsPerPage),
+  }).map((_, i) => (
+    <button
+      key={i}
+      onClick={() => setCurrentPage(i + 1)}
+      className={`px-3 py-1 border rounded ${
+        currentPage === i + 1 ? "bg-blue-600 text-white" : ""
+      }`}
+    >
+      {i + 1}
+    </button>
+  ))}
+
+  <button
+    className="px-3 py-1 border rounded disabled:opacity-50"
+    disabled={
+      currentPage === Math.ceil(filteredData.length / itemsPerPage)
+    }
+    onClick={() => setCurrentPage((prev) => prev + 1)}
+  >
+    Next
+  </button>
+</div>
       </div>
 
       {selectedTransaction ? (

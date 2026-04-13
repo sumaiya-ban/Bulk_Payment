@@ -173,30 +173,33 @@ const DashboardOverview = () => {
 
       {/* Stats */}
       {(isAdmin || isCustomer) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, i) => (
-            <div
-              key={i}
-              className={`relative overflow-hidden rounded-[2rem] p-5 shadow-2xl border ${cardStyles[i].wrapper} transform transition-all duration-300 hover:scale-105 hover:shadow-[0_25px_80px_rgba(15,23,42,0.15)]`}>
-              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/20 blur-3xl" />
-              <div className="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-white/15 blur-3xl" />
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+  {stats.map((stat, i) => (
+    <div
+      key={i}
+      className={`relative overflow-hidden rounded-xl p-4 border ${cardStyles[i].wrapper} transform transition-all duration-300 hover:scale-105 hover:shadow-[0_15px_40px_rgba(15,23,42,0.12)]`}
+    >
+      <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/20 blur-2xl" />
+      <div className="absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
 
-              <div className="relative flex justify-between mb-4">
-                <div className={`p-3 rounded-2xl ${cardStyles[i].iconBg} shadow-sm`}> 
-                  <stat.icon className={`w-6 h-6 ${cardStyles[i].iconColor}`} />
-                </div>
-                <span className={`flex items-center ${cardStyles[i].changeColor} text-xs font-semibold`}> 
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {stat.change}
-                </span>
-              </div>
-              <div className="relative">
-                <h2 className="text-3xl font-bold">{stat.value}</h2>
-                <p className="text-xs font-semibold opacity-90">{stat.title}</p>
-              </div>
-            </div>
-          ))}
+      <div className="relative flex justify-between mb-2">
+        <div className={`p-2 rounded-xl ${cardStyles[i].iconBg} shadow-sm`}>
+          <stat.icon className={`w-5 h-5 ${cardStyles[i].iconColor}`} />
         </div>
+
+        <span className={`flex items-center ${cardStyles[i].changeColor} text-[10px] font-semibold`}>
+          <TrendingUp className="w-3 h-3 mr-1" />
+          {stat.change}
+        </span>
+      </div>
+
+      <div className="relative">
+        <h2 className="text-xl font-bold">{stat.value}</h2>
+        <p className="text-[11px] font-semibold opacity-90">{stat.title}</p>
+      </div>
+    </div>
+  ))}
+</div>
       )}
 
       {isAdmin ? (

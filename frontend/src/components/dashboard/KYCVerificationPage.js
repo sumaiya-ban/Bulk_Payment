@@ -11,13 +11,22 @@ const statusStyles = {
 const KYCVerificationPage = () => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user.role === "admin";
+const [currentPage, setCurrentPage] = useState(1);
+const rowsPerPage = 5;
 
   const [adminRows, setAdminRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRow, setSelectedRow] = useState(null);
   const [notes, setNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+const totalPages = Math.ceil(adminRows.length / rowsPerPage);
 
+const startIndex = (currentPage - 1) * rowsPerPage;
+
+const paginatedRows = adminRows.slice(
+  startIndex,
+  startIndex + rowsPerPage
+);
   useEffect(() => {
     const loadKyc = async () => {
       try {
@@ -91,7 +100,7 @@ const KYCVerificationPage = () => {
         <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 text-left text-gray-700">
+              <thead className="bg-gray-200 text-left text-black">
                 <tr>
                   <th className="px-4 py-3">Customer</th>
                   <th className="px-4 py-3">Email</th>
@@ -118,7 +127,7 @@ const KYCVerificationPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  adminRows.map((row) => (
+                  paginatedRows.map((row) => (
                     <tr key={row.id} className="border-t">
                       <td className="px-4 py-3">{row.name || "N/A"}</td>
                       <td className="px-4 py-3">{row.email || "N/A"}</td>
@@ -141,7 +150,7 @@ const KYCVerificationPage = () => {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => openDetails(row)}
-                          className="rounded-md bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
+                          className="rounded-md bg-green-600 px-3 py-1.5 text-white hover:bg-green-700"
                         >
                           View
                         </button>
@@ -151,6 +160,31 @@ const KYCVerificationPage = () => {
                 )}
               </tbody>
             </table>
+            <div className="flex items-center justify-between border-t p-4">
+  <p className="text-sm text-gray-600">
+    Page {currentPage} of {totalPages}
+  </p>
+
+  <div className="flex gap-2">
+    <button
+      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+      disabled={currentPage === 1}
+      className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+    >
+      Prev
+    </button>
+
+    <button
+      onClick={() =>
+        setCurrentPage((p) => Math.min(p + 1, totalPages))
+      }
+      disabled={currentPage === totalPages}
+      className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+    >
+      Next
+    </button>
+  </div>
+</div>
           </div>
         </div>
 

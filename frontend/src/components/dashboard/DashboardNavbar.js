@@ -290,7 +290,7 @@ const DashboardNavbar = () => {
 };
 
   return (
-    <header className="h-16 bg-sky-100 text-slate-900 border-b-0 flex items-center justify-between px-6 shrink-0 shadow-lg">
+    <header className="sticky top-0 z-50 h-16 bg-green-100 flex items-center justify-between px-6 shadow-lg">
       <div className="flex items-center gap-3 min-w-0">
         {currentHeader.backTo && (
           <button

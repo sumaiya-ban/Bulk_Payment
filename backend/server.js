@@ -103,6 +103,14 @@ const ensureAppSettingsTable = async () => {
     ["transaction_round_limitation", "Transaction Round Limitation", "10"],
     ["money_limitation", "Money Limitation", "10000"],
     ["total_money_limitation", "Total Money Limitation", "100000"],
+    ["url", "URL", ""],
+    ["api_key", "API Key", ""],
+  ["senderid", "Sender ID", ""],
+  ["number", "Phone Number", ""],
+  ["message", "Message Content", ""],
+  ["gmail", "API Gmail",""],
+  ["app_password","App Password",""],
+  ["otp_type","",""],
   ];
 
   for (const [settingKey, settingLabel, settingValue] of defaults) {
@@ -158,7 +166,7 @@ const getNumericSettingValue = async (keys = []) => {
 const ensureTransactionStatusColumn = async () => {
   await db.query(`
     ALTER TABLE transactions
-    MODIFY COLUMN status ENUM('pending','send','failed') DEFAULT 'pending'
+    MODIFY COLUMN status ENUM('pending','send','success','failed') DEFAULT 'pending'
   `);
 };
 
@@ -365,17 +373,21 @@ const initiateSSLCommerzPayment = async (transactionData) => {
     }
 
     // ✅ EXTRACT PAYMENT URL (VERY IMPORTANT)
-   const paymentUrl =
-  response.data.redirectGatewayURL ||
-  response.data.GatewayPageURL ||
-  response.data.gatewayPageURL ||
-  response.data.redirect_url ||
-  response.data.gw_page_url ||
-  response.data.url;
+// ✅ EXTRACT PAYMENT URL (SAFE VERSION)
+const paymentUrl =
+  response.data?.GatewayPageURL ||
+  response.data?.gatewayPageURL ||
+  response.data?.redirectGatewayURL ||
+  response.data?.redirect_url ||
+  response.data?.gw_page_url ||
+  response.data?.url;
+
+console.log("[SSLCommerz] FULL RESPONSE:", response.data);
 
 if (!paymentUrl) {
-  console.error("SSL RESPONSE:", response.data);
-  throw new Error("No payment gateway URL returned from SSLCommerz");
+  throw new Error(
+    "No payment URL returned from SSLCommerz. Check store credentials or sandbox mode."
+  );
 }
     console.log("[SSLCommerz] Redirect URL:", paymentUrl);
 
@@ -2104,3 +2116,5 @@ app.get("/api/transactions/daily", async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 });
+
+/////////////////////////////////////////////////
