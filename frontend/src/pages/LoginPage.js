@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-
+ import { Check } from "lucide-react";
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,11 +50,30 @@ const LoginPage = () => {
             Get great rates in less than five minutes
           </h1>
 
-          <ul className="space-y-4 text-white text-sm">
-            <li>✔ Better Exchange Rates</li>
-            <li>✔ Low Transaction Fee</li>
-            <li>✔ No Hidden Fees</li>
-          </ul>
+         
+
+<ul className="space-y-4 text-white text-sm">
+  <li className="flex items-center gap-3">
+    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-purple-600 bg-purple-600 shadow-md">
+      <Check size={14} />
+    </span>
+    Better Exchange Rates
+  </li>
+
+  <li className="flex items-center gap-3">
+    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-purple-600 bg-purple-600 shadow-md">
+      <Check size={14} />
+    </span>
+    Low Transaction Fee
+  </li>
+
+  <li className="flex items-center gap-3">
+   <span className="flex items-center justify-center w-6 h-6 rounded-full border border-purple-600 bg-purple-600 shadow-md">
+      <Check size={14} />
+    </span>
+    No Hidden Fees
+  </li>
+</ul>
         </div>
       </div>
 

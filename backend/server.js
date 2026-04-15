@@ -110,7 +110,7 @@ const ensureAppSettingsTable = async () => {
   ["message", "Message Content", ""],
   ["gmail", "API Gmail",""],
   ["app_password","App Password",""],
-  ["otp_type","",""],
+  ["otp_type","OTP Type","sms"],
   ];
 
   for (const [settingKey, settingLabel, settingValue] of defaults) {
@@ -1373,7 +1373,42 @@ app.patch("/auth/settings/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+app.patch("/auth/settings/key/:key", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.type !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
 
+    const { key } = req.params;
+    const { setting_value } = req.body;
+
+    if (setting_value === undefined || setting_value === null) {
+      return res.status(400).json({ error: "Setting value is required" });
+    }
+
+    await db.query(
+      `UPDATE app_settings
+       SET setting_value = ?
+       WHERE setting_key = ?`,
+      [String(setting_value), key]
+    );
+
+    const [rows] = await db.query(
+      `SELECT id, setting_key, setting_label, setting_value, updated_at
+       FROM app_settings
+       WHERE setting_key = ?`,
+      [key]
+    );
+
+    res.json({
+      message: "Setting updated successfully",
+      setting: rows[0] || null,
+    });
+  } catch (err) {
+    console.error("Settings update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 // ================= OTHER ROUTES =================
 app.get("/auth/customers", async (req, res) => {
   try {
@@ -2118,3 +2153,20 @@ app.get("/api/transactions/daily", async (req, res) => {
 });
 
 /////////////////////////////////////////////////
+app.patch("/auth/settings/otp_type", async (req, res) => {
+  try {
+    const { setting_value } = req.body;
+
+    await db.query(
+      `UPDATE app_settings 
+       SET setting_value = ? 
+       WHERE setting_key = 'otp_type'`,
+      [setting_value]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update OTP type" });
+  }
+});

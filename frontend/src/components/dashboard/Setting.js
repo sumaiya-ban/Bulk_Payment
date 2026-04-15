@@ -10,6 +10,8 @@ const [selectedApi, setSelectedApi] = useState("sms");
   const [editingId, setEditingId] = useState(null);
   const [draftValues, setDraftValues] = useState({});
   const [savingId, setSavingId] = useState(null);
+  const [otpRow, setOtpRow] = useState(null);
+  
 const smsKeys = ["url", "api_key", "senderid", "number", "message"];
 const emailKeys = ["gmail", "app_password"];
 const hiddenKeys = [
@@ -21,6 +23,27 @@ const hiddenKeys = [
   "gmail",
   "app_password",
 ];
+
+
+
+
+const saveOtpType = async (type) => {
+  try {
+    if (!otpRow) return;
+
+    await axios.patch(
+      `http://localhost:8081/auth/settings/${otpRow.id}`,
+      { setting_value: type },
+      { withCredentials: true }
+    );
+  } catch (err) {
+    console.error("Failed to update OTP type", err);
+  }
+};
+const handleOtpTypeChange = (type) => {
+  setSelectedApi(type);
+  saveOtpType(type);
+};
 const smsSettings = settings.filter((s) =>
   smsKeys.includes(s.setting_key)
 );
@@ -28,35 +51,68 @@ const smsSettings = settings.filter((s) =>
 const emailSettings = settings.filter((s) =>
   emailKeys.includes(s.setting_key)
 );
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const res = await axios.get("http://localhost:8081/auth/settings", {
-          withCredentials: true,
-        });
+useEffect(() => {
+  const fetchOtpType = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:8081/auth/settings",
+        { withCredentials: true }
+      );
 
-        const rows = Array.isArray(res.data) ? res.data : [];
-        setSettings(rows);
+      const otpSetting = res.data.find(
+        (s) => s.setting_key === "otp_type"
+      );
 
-        const initialDrafts = rows.reduce((acc, row) => {
-          acc[row.id] = row.setting_value;
-          return acc;
-        }, {});
-
-        setDraftValues(initialDrafts);
-      } catch (err) {
-        console.error("Failed to load settings:", err.response?.data || err.message);
-      } finally {
-        setLoading(false);
+      if (otpSetting) {
+        setSelectedApi(otpSetting.setting_value);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-    if (isAdmin) {
-      loadSettings();
-    } else {
+  fetchOtpType();
+}, []);
+ useEffect(() => {
+  const loadSettings = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:8081/auth/settings",
+        { withCredentials: true }
+      );
+
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setSettings(rows);
+
+      const initialDrafts = rows.reduce((acc, row) => {
+        acc[row.id] = row.setting_value;
+        return acc;
+      }, {});
+      setDraftValues(initialDrafts);
+
+      // ✅ FIX: OTP logic here (correct scope)
+      const otpSetting = rows.find(
+        (s) => s.setting_key === "otp_type"
+      );
+
+      if (otpSetting) {
+        setOtpRow(otpSetting);
+        setSelectedApi(otpSetting.setting_value);
+      }
+
+    } catch (err) {
+      console.error("Failed to load settings:", err.response?.data || err.message);
+    } finally {
       setLoading(false);
     }
-  }, [isAdmin]);
+  };
+
+  if (isAdmin) {
+    loadSettings();
+  } else {
+    setLoading(false);
+  }
+}, [isAdmin]);
 
   const handleActionClick = async (row) => {
     if (editingId !== row.id) {
@@ -330,7 +386,7 @@ const emailSettings = settings.filter((s) =>
     {/* SMS Button */}
     
     <button
-      onClick={() => setSelectedApi("sms")}
+     onClick={() => handleOtpTypeChange("sms")}
       className={`w-1/2 z-10 text-sm font-medium py-2 rounded-full transition ${
         selectedApi === "sms"
           ? "text-blue-600"
@@ -342,7 +398,7 @@ const emailSettings = settings.filter((s) =>
 
     {/* Email Button */}
     <button
-      onClick={() => setSelectedApi("email")}
+      onClick={() => handleOtpTypeChange("email")}
       className={`w-1/2 z-10 text-sm font-medium py-2 rounded-full transition ${
         selectedApi === "email"
           ? "text-purple-600"
