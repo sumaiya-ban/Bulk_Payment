@@ -12,11 +12,11 @@ const RegisterPage = () => {
   const [success, setSuccess] = useState("");
 const [showOtpModal, setShowOtpModal] = useState(false);
 const [otpType, setOtpType] = useState("sms");
-const [generatedOtp, setGeneratedOtp] = useState("");
+
 const [otp, setOtp] = useState(["", "", "", ""]);
 const [formData, setFormData] = useState(null);
 const handleOtpChange = (value, index) => {
-  if (!/^[0-9]?$/.test(value)) return; // only numbers
+  if (!/^[0-9]?$/.test(value)) return; 
 
   const newOtp = [...otp];
   newOtp[index] = value;
@@ -27,7 +27,7 @@ const handleOtpChange = (value, index) => {
     document.getElementById(`otp-${index + 1}`).focus();
   }
 };
- const handleSubmit = (e) => {
+ const handleSubmit = async (e) => {
   e.preventDefault();
   setError("");
   setSuccess("");
@@ -36,14 +36,23 @@ const handleOtpChange = (value, index) => {
     setError("Passwords do not match");
     return;
   }
+if (otpType === "sms" && !phone) {
+  setError("Phone number is required for SMS OTP");
+  return;
+}
+  try {
+    // 🔥 Call backend OTP API
+   await axios.post("http://localhost:8081/auth/send-otp", {
+  email,
+  phone,
+  purpose: "register",
+});
+    setFormData({ name, email, phone, password });
+    setShowOtpModal(true);
 
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-  setGeneratedOtp(otpCode);
-  setFormData({ name, email, phone, password });
-
-  console.log("OTP:", otpCode); // 👉 later send via SMS/email
-  setShowOtpModal(true);
+  } catch (err) {
+    setError(err.response?.data?.error || "Failed to send OTP");
+  }
 };
 useEffect(() => {
   const fetchOtpType = async () => {
@@ -70,26 +79,31 @@ useEffect(() => {
 const verifyOtpAndRegister = async () => {
   const enteredOtp = otp.join("");
 
-  if (enteredOtp !== generatedOtp) {
-    setError("Invalid OTP");
+  if (enteredOtp.length < 4) {
+    setError("Enter valid OTP");
     return;
   }
 
   try {
+    // 🔥 VERIFY OTP FROM BACKEND
+    await axios.post("http://localhost:8081/auth/verify-otp", {
+      email,
+      otp: enteredOtp,
+      purpose: "register",
+    });
+
+    // 🔥 THEN REGISTER USER
     const res = await axios.post(
       "http://localhost:8081/auth/register",
-      formData,
-      { withCredentials: true }
+      formData
     );
 
     setSuccess(res.data.message);
     setShowOtpModal(false);
-
-    // reset
     setOtp(["", "", "", ""]);
 
   } catch (err) {
-    setError(err.response?.data?.error || "Registration failed");
+    setError(err.response?.data?.error || "OTP verification failed");
   }
 };
   return (
@@ -248,17 +262,17 @@ const verifyOtpAndRegister = async () => {
 </form>
         </div>
       </div>
-      {showOtpModal && otpType === "sms" && (
+      {showOtpModal &&  (
   <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
     <div className="bg-white p-6 rounded-xl w-[350px] shadow-lg">
 
-      <h3 className="text-lg font-semibold mb-2 text-center">
-        SMS Verification
-      </h3>
+     <h3 className="text-lg font-semibold mb-2 text-center">
+  {otpType === "sms" ? "SMS Verification" : "Email Verification"}
+</h3>
 
-      <p className="text-sm text-gray-500 text-center mb-4">
-        OTP sent to your mobile number
-      </p>
+<p className="text-sm text-gray-500 text-center mb-4">
+  OTP sent to your {otpType === "sms" ? "mobile number" : "email"}
+</p>
 
       <div className="flex justify-between gap-2 mb-4">
         {otp.map((digit, index) => (
@@ -283,41 +297,7 @@ const verifyOtpAndRegister = async () => {
     </div>
   </div>
 )}
-{showOtpModal && otpType === "email" && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-    <div className="bg-white p-6 rounded-xl w-[350px] shadow-lg">
 
-      <h3 className="text-lg font-semibold mb-2 text-center">
-        Email Verification
-      </h3>
-
-      <p className="text-sm text-gray-500 text-center mb-4">
-        OTP sent to your email address
-      </p>
-
-      <div className="flex justify-between gap-2 mb-4">
-        {otp.map((digit, index) => (
-          <input
-            key={index}
-            id={`otp-${index}`}
-            type="text"
-            maxLength={1}
-            value={digit}
-            onChange={(e) => handleOtpChange(e.target.value, index)}
-            className="w-12 h-12 text-center text-lg border rounded-lg"
-          />
-        ))}
-      </div>
-
-      <button
-        onClick={verifyOtpAndRegister}
-        className="w-full py-2 bg-purple-600 text-white rounded-lg"
-      >
-        Verify Email OTP
-      </button>
-    </div>
-  </div>
-)}
     </div>
   );
 };

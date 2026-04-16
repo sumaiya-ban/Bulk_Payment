@@ -19,6 +19,7 @@ import KYCVerificationPage from "./components/dashboard/KYCVerificationPage";
 import Profile from "./pages/Profile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import Setting from "./components/dashboard/Setting";
+import Landing from "./components/dashboard/Landing";
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
  <Route path="transactions" element={<Transaction />}  />
  <Route path="verification" element={<KYCVerificationPage />}  />
  <Route path="setting" element={<Setting />}  />
+ <Route path="landing" element={<Landing />}  />
         </Route>
 
       </Routes>

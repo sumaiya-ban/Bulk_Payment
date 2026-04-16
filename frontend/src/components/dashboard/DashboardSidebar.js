@@ -21,6 +21,7 @@ const menuItems = [
   { titleEn: "Recipients", titleBn: "গ্রহীতারা", url: "/dashboard/recipients", icon: Users, roles: ["admin"] },
   { titleEn: "Create Customer", titleBn: "কাস্টমার তৈরি", url: "/dashboard/customers", icon: Users, roles: ["admin"] },
   { titleEn: "Setting", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Wallet, roles: ["admin"] },
+   { titleEn: "Landing Page", titleBn: "ল্যান্ডিং পেজ", url: "/dashboard/landing", icon: Wallet, roles: ["admin"] },
 ];
 
 const financeItems = [

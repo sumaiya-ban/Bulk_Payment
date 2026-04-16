@@ -418,7 +418,18 @@ useEffect(() => {
     const safeTransactionId = selectedTransaction.tnx_id || `transaction-${selectedTransaction.id}`;
     doc.save(`${safeTransactionId}.pdf`);
   };
+const handleGenerateReport = async (tx) => {
+  try {
+    await axios.post("http://localhost:8081/auth/report", {
+      transaction_id: tx.id,
+    });
 
+    alert("Report generated successfully");
+  } catch (error) {
+    console.error(error);
+    alert("Failed to generate report");
+  }
+};
   const fetchKycRecord = async () => {
     if (!users_id || isAdmin) {
       return;
@@ -921,6 +932,12 @@ const currentTransactions = filteredData.slice(
                         </button>
                       ) : null}
                     </div>
+                    <button
+  onClick={() => handleGenerateReport(tx)}
+  className="rounded px-2 py-1 text-white bg-blue-600 hover:bg-blue-700"
+>
+  Report
+</button>
                   </td>
                 </tr>
               ))

@@ -896,21 +896,60 @@ const upload = multer({ storage });
 // ================= AUTH ROUTES =================
 app.post("/auth/register", async (req, res) => {
   const { email, password, phone, name } = req.body;
-  if (!email || !password || !phone || !name) return res.status(400).json({ error: "All fields are required" });
 
-  if (!/\S+@\S+\.\S+/.test(email)) return res.status(400).json({ error: "Invalid email format" });
-  if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password)) return res.status(400).json({ error: "Password must contain upper and lower case letters" });
-  if (!/^\+?\d{10,15}$/.test(phone)) return res.status(400).json({ error: "Invalid phone number" });
+  if (!email || !password || !phone || !name)
+    return res.status(400).json({ error: "All fields are required" });
+
+  if (!/\S+@\S+\.\S+/.test(email))
+    return res.status(400).json({ error: "Invalid email format" });
+
+  if (password.length < 6)
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password))
+    return res.status(400).json({ error: "Password must contain upper and lower case letters" });
+
+  if (!/^\+?\d{10,15}$/.test(phone))
+    return res.status(400).json({ error: "Invalid phone number" });
 
   try {
-    const [existing] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-    if (existing.length > 0) return res.status(400).json({ error: "Email already exists" });
+    // 🔥 OTP CHECK (ADD THIS)
+    const key = email || phone;
+    const savedOtp = otpStore[key];
 
+    if (!savedOtp || !savedOtp.verified) {
+      return res.status(400).json({
+        error: "Please verify OTP before registration",
+      });
+    }
+
+    if (Date.now() > savedOtp.expiresAt) {
+      return res.status(400).json({ error: "OTP expired" });
+    }
+
+    // 🔥 CHECK EXISTING USER
+    const [existing] = await db.query(
+      "SELECT * FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (existing.length > 0)
+      return res.status(400).json({ error: "Email already exists" });
+
+    // 🔒 HASH PASSWORD
     const hashedPassword = await bcrypt.hash(password, 10);
-    await db.query("INSERT INTO users (email, password, phone, name,type,status) VALUES (?, ?, ?, ?, ?, ?)", [email, hashedPassword, phone, name, "customer", "active"]);
+
+    // ✅ INSERT USER
+    await db.query(
+      "INSERT INTO users (email, password, phone, name, type, status) VALUES (?, ?, ?, ?, ?, ?)",
+      [email, hashedPassword, phone, name, "customer", "active"]
+    );
+
+    // 🧹 CLEAR OTP AFTER SUCCESS
+    delete otpStore[key];
 
     res.json({ message: "User registered successfully" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -958,67 +997,93 @@ app.post("/auth/logout", (req, res) => {
 });
 
 app.post("/auth/send-otp", async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
-  }
-
-  if (!/\S+@\S+\.\S+/.test(email)) {
-    return res.status(400).json({ error: "Invalid email format" });
-  }
+  const { email, phone, purpose } = req.body;
 
   try {
-    const [rows] = await db.query("SELECT id, email FROM users WHERE email = ?", [email]);
+    // 🔥 CHECK USER EXISTENCE
+    if (email) {
+      const [users] = await db.query(
+        "SELECT id FROM users WHERE email = ?",
+        [email]
+      );
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      if (purpose === "register" && users.length > 0) {
+        return res.status(400).json({ error: "User already exists" });
+      }
+
+      if (purpose === "forgot" && users.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
     }
 
-    if (
-      mailUser === "yourrealemail@gmail.com" ||
-      mailPass === "abcd efgh ijkl mnop"
-    ) {
-      return res.status(500).json({
-        error: "Email service is not configured. Add GMAIL_USER and GMAIL_APP_PASSWORD to backend/.env, then restart the backend server.",
-      });
+    // 🔥 GET OTP TYPE FROM DB
+    const [settings] = await db.query(
+      "SELECT setting_value FROM app_settings WHERE setting_key = 'otp_type'"
+    );
+
+    const otpType = settings[0]?.setting_value || "email";
+
+    const key = email || phone;
+
+    if (!key) {
+      return res.status(400).json({ error: "Email or phone required" });
     }
 
     const otp = generateOtp();
-    otpStore[email] = {
+
+    otpStore[key] = {
       otp,
       expiresAt: Date.now() + OTP_EXPIRY_MS,
       verified: false,
     };
 
-    await transporter.sendMail({
-      from: mailUser,
-      to: email,
-      subject: "Your Bulk Payment OTP Code",
-      text: `Your 4-digit OTP is ${otp}. It will expire in 5 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>Bulk Payment OTP</h2>
-          <p>Your 4-digit OTP is:</p>
-          <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${otp}</p>
-          <p>This code will expire in 5 minutes.</p>
-        </div>
-      `,
-    });
+    // ✅ EMAIL OTP
+    if (otpType === "email") {
+      if (!email) {
+        return res.status(400).json({ error: "Email required" });
+      }
 
-    res.json({ message: "4-digit OTP sent successfully" });
+      await transporter.sendMail({
+        from: mailUser,
+        to: email,
+        subject: "Your OTP Code",
+        text: `Your OTP is ${otp}`,
+      });
+    }
+
+    // ✅ SMS OTP
+    if (otpType === "sms") {
+      if (!phone) {
+        return res.status(400).json({ error: "Phone required for SMS OTP" });
+      }
+
+      const qs = require("querystring");
+
+      const formattedNumber = phone.startsWith("880")
+        ? phone
+        : `880${phone.replace(/^0/, "")}`;
+
+      await axios.post(
+        "http://bulksmsbd.net/api/smsapi",
+        qs.stringify({
+          api_key: "mVRusacpC5hmcGMrcSyU",
+          senderid: "8809648905591",
+          number: formattedNumber,
+          message: `Your OTP is ${otp}`,
+        }),
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        }
+      );
+    }
+
+    res.json({ message: `OTP sent via ${otpType}` });
+
   } catch (err) {
-    console.error("Send OTP error:", err);
-    const smtpHint =
-      err?.code === "EAUTH"
-        ? "Gmail authentication failed. Check GMAIL_USER and GMAIL_APP_PASSWORD."
-        : err?.code === "EINVAL"
-        ? "Email transport configuration is invalid."
-        : err?.responseCode === 535
-        ? "Gmail rejected the login. Use a valid Gmail App Password."
-        : err?.message || "Failed to send OTP email";
-
-    res.status(500).json({ error: smtpHint });
+    console.error("OTP send error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to send OTP" });
   }
 });
 
@@ -2170,3 +2235,5 @@ app.patch("/auth/settings/otp_type", async (req, res) => {
     res.status(500).json({ error: "Failed to update OTP type" });
   }
 });
+
+/////////////////////////////////////////
