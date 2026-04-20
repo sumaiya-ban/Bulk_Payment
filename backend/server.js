@@ -103,6 +103,10 @@ const ensureAppSettingsTable = async () => {
     ["transaction_round_limitation", "Transaction Round Limitation", "10"],
     ["money_limitation", "Money Limitation", "10000"],
     ["total_money_limitation", "Total Money Limitation", "100000"],
+
+    // ✅ NEW CHARGE SETTINGS
+  ["transaction_fee_type", "Transaction Fee Type (percent/fixed)", "percent"],
+  ["transaction_fee_value", "Transaction Fee Value", "2"],
     ["url", "URL", ""],
     ["api_key", "API Key", ""],
   ["senderid", "Sender ID", ""],
@@ -127,28 +131,96 @@ const ensureAppSettingsTable = async () => {
       `,
       [settingKey, settingLabel, settingValue, settingKey]
     );
+    
   }
 };
+const ensureHeroSectionTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS hero_section (
+      id INT PRIMARY KEY AUTO_INCREMENT,
 
-const getSettingValueByKeys = async (keys = []) => {
+      badge_text VARCHAR(255),
+      title VARCHAR(255),
+      highlight_text VARCHAR(255),
+      description TEXT,
+
+      primary_button_text VARCHAR(100),
+      primary_button_link VARCHAR(255),
+      secondary_button_text VARCHAR(100),
+      secondary_button_link VARCHAR(255),
+
+      stat1_value VARCHAR(50),
+      stat1_label VARCHAR(100),
+      stat2_value VARCHAR(50),
+      stat2_label VARCHAR(100),
+      stat3_value VARCHAR(50),
+      stat3_label VARCHAR(100),
+
+      card_amount VARCHAR(50),
+      card_recipients VARCHAR(100),
+      card_status VARCHAR(100),
+      card_verified VARCHAR(100)
+    )
+  `);
+
+  await db.query(`
+    INSERT INTO hero_section (id, badge_text, title, highlight_text, description,
+      primary_button_text, primary_button_link,
+      secondary_button_text, secondary_button_link,
+      stat1_value, stat1_label,
+      stat2_value, stat2_label,
+      stat3_value, stat3_label,
+      card_amount, card_recipients, card_status, card_verified)
+
+    SELECT 1,
+      'Trusted by 10,000+ businesses',
+      'Send Bulk Payments',
+      'Instantly',
+      'Process thousands of payments in a single click.',
+      'Start Free Trial',
+      '#contact',
+      'Learn More',
+      '#services',
+      '$2B+','Processed',
+      '150+','Countries',
+      '99.9%','Uptime',
+      '$48,250.00',
+      '1,240 recipients',
+      'Processing',
+      'Verified'
+
+    WHERE NOT EXISTS (
+      SELECT 1 FROM hero_section WHERE id = 1
+    )
+  `);
+};
+// ✅ NEW FUNCTION
+const getSettingsByKeys = async (keys = []) => {
   if (!Array.isArray(keys) || keys.length === 0) {
-    return null;
+    return {};
   }
 
   const placeholders = keys.map(() => "?").join(", ");
   const [rows] = await db.query(
-    `
-      SELECT setting_key, setting_value
-      FROM app_settings
-      WHERE setting_key IN (${placeholders})
-    `,
+    `SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (${placeholders})`,
     keys
   );
 
+  const result = {};
+  rows.forEach((row) => {
+    result[row.setting_key] = row.setting_value;
+  });
+
+  return result;
+};
+
+const getSettingValueByKeys = async (keys = []) => {
+  const settings = await getSettingsByKeys(keys);
+
   for (const key of keys) {
-    const matchedRow = rows.find((row) => row.setting_key === key);
-    if (matchedRow) {
-      return matchedRow.setting_value;
+    const value = settings[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
     }
   }
 
@@ -493,6 +565,8 @@ const initDatabase = async () => {
     `);
 
     await ensureColumn("transactions", "notes", "VARCHAR(255) NULL");
+    await ensureColumn("transactions", "fee", "DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+    await ensureColumn("transactions", "total_amount", "DECIMAL(10,2) NOT NULL DEFAULT 0.00");
     await ensureTransactionStatusColumn();
 
     await ensureNotificationsTable();
@@ -897,34 +971,58 @@ const upload = multer({ storage });
 app.post("/auth/register", async (req, res) => {
   const { email, password, phone, name } = req.body;
 
-  if (!email || !password || !phone || !name)
+  if (!email || !password || !phone || !name) {
     return res.status(400).json({ error: "All fields are required" });
+  }
 
-  if (!/\S+@\S+\.\S+/.test(email))
+  if (!/\S+@\S+\.\S+/.test(email)) {
     return res.status(400).json({ error: "Invalid email format" });
+  }
 
-  if (password.length < 6)
+  if (password.length < 6) {
     return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
 
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password))
-    return res.status(400).json({ error: "Password must contain upper and lower case letters" });
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password)) {
+    return res.status(400).json({
+      error: "Password must contain upper and lower case letters",
+    });
+  }
 
-  if (!/^\+?\d{10,15}$/.test(phone))
+  if (!/^\+?\d{10,15}$/.test(phone)) {
     return res.status(400).json({ error: "Invalid phone number" });
+  }
 
   try {
-    // 🔥 OTP CHECK (ADD THIS)
-    const key = email || phone;
+    // 🔥 GET OTP TYPE (IMPORTANT FIX)
+    const [settings] = await db.query(
+      "SELECT setting_value FROM app_settings WHERE setting_key = 'otp_type'"
+    );
+
+    const otpType = settings[0]?.setting_value || "email";
+
+    // 🔥 DETERMINE KEY (MUST MATCH send-otp + verify-otp)
+    const key = otpType === "sms" ? phone : email;
+
+    // 🔥 CHECK OTP
     const savedOtp = otpStore[key];
 
-    if (!savedOtp || !savedOtp.verified) {
+    if (!savedOtp) {
+      return res.status(400).json({
+        error: "Please request OTP first",
+      });
+    }
+
+    if (!savedOtp.verified) {
       return res.status(400).json({
         error: "Please verify OTP before registration",
       });
     }
 
     if (Date.now() > savedOtp.expiresAt) {
-      return res.status(400).json({ error: "OTP expired" });
+      return res.status(400).json({
+        error: "OTP expired",
+      });
     }
 
     // 🔥 CHECK EXISTING USER
@@ -933,8 +1031,9 @@ app.post("/auth/register", async (req, res) => {
       [email]
     );
 
-    if (existing.length > 0)
+    if (existing.length > 0) {
       return res.status(400).json({ error: "Email already exists" });
+    }
 
     // 🔒 HASH PASSWORD
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -945,17 +1044,18 @@ app.post("/auth/register", async (req, res) => {
       [email, hashedPassword, phone, name, "customer", "active"]
     );
 
-    // 🧹 CLEAR OTP AFTER SUCCESS
+    // 🧹 CLEAN OTP
     delete otpStore[key];
 
-    res.json({ message: "User registered successfully" });
+    return res.json({
+      message: "User registered successfully",
+    });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    console.error("Register error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 });
-
 app.post("/auth/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "All fields required" });
@@ -1000,7 +1100,23 @@ app.post("/auth/send-otp", async (req, res) => {
   const { email, phone, purpose } = req.body;
 
   try {
-    // 🔥 CHECK USER EXISTENCE
+    // 🔥 GET OTP TYPE
+    const [settings] = await db.query(
+      "SELECT setting_value FROM app_settings WHERE setting_key = 'otp_type'"
+    );
+
+    const otpType = settings[0]?.setting_value || "email";
+
+    // ✅ VALIDATION
+    if (otpType === "sms" && !phone) {
+      return res.status(400).json({ error: "Phone required" });
+    }
+
+    if (otpType === "email" && !email) {
+      return res.status(400).json({ error: "Email required" });
+    }
+
+    // 🔥 USER CHECK (register only)
     if (email) {
       const [users] = await db.query(
         "SELECT id FROM users WHERE email = ?",
@@ -1016,33 +1132,21 @@ app.post("/auth/send-otp", async (req, res) => {
       }
     }
 
-    // 🔥 GET OTP TYPE FROM DB
-    const [settings] = await db.query(
-      "SELECT setting_value FROM app_settings WHERE setting_key = 'otp_type'"
-    );
+    // ✅ KEY (IMPORTANT FIX)
+    const key = otpType === "sms" ? phone : email;
 
-    const otpType = settings[0]?.setting_value || "email";
-
-    const key = email || phone;
-
-    if (!key) {
-      return res.status(400).json({ error: "Email or phone required" });
-    }
-
-    const otp = generateOtp();
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
     otpStore[key] = {
       otp,
-      expiresAt: Date.now() + OTP_EXPIRY_MS,
+      expiresAt: Date.now() + 5 * 60 * 1000,
       verified: false,
     };
 
-    // ✅ EMAIL OTP
-    if (otpType === "email") {
-      if (!email) {
-        return res.status(400).json({ error: "Email required" });
-      }
+    console.log("OTP SENT:", otp, "KEY:", key);
 
+    // 📧 EMAIL OTP
+    if (otpType === "email") {
       await transporter.sendMail({
         from: mailUser,
         to: email,
@@ -1051,12 +1155,8 @@ app.post("/auth/send-otp", async (req, res) => {
       });
     }
 
-    // ✅ SMS OTP
+    // 📱 SMS OTP
     if (otpType === "sms") {
-      if (!phone) {
-        return res.status(400).json({ error: "Phone required for SMS OTP" });
-      }
-
       const qs = require("querystring");
 
       const formattedNumber = phone.startsWith("880")
@@ -1066,8 +1166,8 @@ app.post("/auth/send-otp", async (req, res) => {
       await axios.post(
         "http://bulksmsbd.net/api/smsapi",
         qs.stringify({
-          api_key: "mVRusacpC5hmcGMrcSyU",
-          senderid: "8809648905591",
+          api_key: "YOUR_API_KEY",
+          senderid: "YOUR_SENDER_ID",
           number: formattedNumber,
           message: `Your OTP is ${otp}`,
         }),
@@ -1082,71 +1182,53 @@ app.post("/auth/send-otp", async (req, res) => {
     res.json({ message: `OTP sent via ${otpType}` });
 
   } catch (err) {
-    console.error("OTP send error:", err.response?.data || err.message);
+    console.error("OTP send error:", err);
     res.status(500).json({ error: "Failed to send OTP" });
   }
 });
 
 app.post("/auth/verify-otp", async (req, res) => {
-  const { email, otp, purpose } = req.body;
-
-  if (!email || !otp) {
-    return res.status(400).json({ error: "Email and OTP are required" });
-  }
+  const { email, phone, otp, purpose } = req.body;
 
   try {
-    const savedOtp = clearExpiredOtp(email);
+    // 🔥 GET OTP TYPE
+    const [settings] = await db.query(
+      "SELECT setting_value FROM app_settings WHERE setting_key = 'otp_type'"
+    );
 
-    if (!savedOtp) {
-      return res.status(400).json({ error: "OTP expired or not found" });
+    const otpType = settings[0]?.setting_value || "email";
+
+    // ✅ SAME KEY LOGIC AS SEND OTP
+    const key = otpType === "sms" ? phone : email;
+
+    if (!key || !otp) {
+      return res.status(400).json({ error: "Key and OTP required" });
     }
 
-    if (savedOtp.otp !== otp) {
+    const savedOtp = otpStore[key];
+
+    console.log("DEBUG OTP:", {
+      key,
+      sent: savedOtp?.otp,
+      received: otp,
+    });
+
+    if (!savedOtp) {
+      return res.status(400).json({ error: "OTP not found or expired" });
+    }
+
+    // 🔥 FORCE STRING MATCH (VERY IMPORTANT)
+    if (String(savedOtp.otp) !== String(otp)) {
       return res.status(400).json({ error: "Invalid OTP" });
     }
 
-    otpStore[email].verified = true;
+    // mark verified
+    otpStore[key].verified = true;
 
-    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    return res.json({
+      message: "OTP verified successfully",
+    });
 
-    const user = rows[0];
-
-    if (purpose === "login") {
-      delete otpStore[email];
-
-      const token = jwt.sign(
-        { id: user.id, email: user.email, type: user.type },
-        process.env.JWT_SECRET || "your_secret_key",
-        { expiresIn: "1d" }
-      );
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: false,
-        sameSite: "strict",
-        maxAge: 24 * 60 * 60 * 1000,
-      });
-
-      return res.json({
-        message: "OTP verified and login successful",
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          occupation: user.occupation,
-          present_address: user.present_address,
-          country: user.country,
-          image: user.image,
-          role: user.type,
-        },
-      });
-    }
-
-    res.json({ message: "OTP matched successfully" });
   } catch (err) {
     console.error("Verify OTP error:", err);
     res.status(500).json({ error: "Server error" });
@@ -1890,7 +1972,21 @@ app.patch("/auth/notifications/:userId/read", async (req, res) => {
 app.get("/", (req,res)=>{res.send("Server is running on port "+PORT);});
 
 // ================= START SERVER =================
-app.listen(PORT, ()=>{console.log(`Server running on port ${PORT}`);});
+(async () => {
+  try {
+    await ensureAppSettingsTable();
+    await ensureNotificationsTable();
+    await ensureTransactionStatusColumn();
+    await ensureUserStatusColumn();
+    await ensureHeroSectionTable(); // ✅ ADD THIS
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Server init error:", err);
+  }
+})();
 // Get KYC by user
 app.get("/auth/kyc/:userId", async (req, res) => {
   const { userId } = req.params;
@@ -1907,20 +2003,35 @@ app.get("/auth/kyc/:userId", async (req, res) => {
 });
 // Create a new transaction
 app.post("/auth/transaction", async (req, res) => {
-  const { customer_id, receiver_id, new_receiver, account_type, amount } = req.body;
+  const {
+    customer_id,
+    receiver_id,
+    new_receiver,
+    account_type,
+    amount,
+  } = req.body;
 
-  if (!customer_id || !account_type || !amount || (!receiver_id && !new_receiver)) {
+  if (
+    !customer_id ||
+    !account_type ||
+    !amount ||
+    (!receiver_id && !new_receiver)
+  ) {
     return res.status(400).json({ error: "All fields are required" });
   }
 
   try {
+    const parsedAmount = Number(amount);
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: "Amount must be a valid number" });
+    }
+
+    // =========================
+    // CHECK USER
+    // =========================
     const [customerRows] = await db.query(
-      `
-        SELECT id, status
-        FROM users
-        WHERE id = ?
-        LIMIT 1
-      `,
+      `SELECT id, status FROM users WHERE id = ? LIMIT 1`,
       [customer_id]
     );
 
@@ -1934,41 +2045,37 @@ app.post("/auth/transaction", async (req, res) => {
       });
     }
 
+    // =========================
+    // CHECK KYC
+    // =========================
     const [kycRows] = await db.query(
-      `
-        SELECT status
-        FROM kycVerification
-        WHERE user_id = ?
-        ORDER BY id DESC
-        LIMIT 1
-      `,
+      `SELECT status FROM kycVerification WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
       [customer_id]
     );
 
-    if (kycRows.length === 0) {
+    if (kycRows.length === 0 || kycRows[0].status !== "approved") {
       return res.status(403).json({
-        error: "KYC must be submitted and approved by admin before making a transaction",
+        error:
+          "KYC must be submitted and approved by admin before making a transaction",
       });
     }
 
-    if (kycRows[0].status !== "approved") {
-      return res.status(403).json({
-        error: "KYC must be submitted and approved by admin before making a transaction",
-      });
-    }
-
+    // =========================
+    // SETTINGS LIMITS
+    // =========================
     const transactionRoundLimit = await getNumericSettingValue([
       "transaction_round",
       "transaction_round_limitation",
     ]);
+
     const moneyLimit = await getNumericSettingValue(["money_limitation"]);
-    const totalMoneyLimit = await getNumericSettingValue(["total_money_limitation"]);
-    const parsedAmount = Number(amount);
+    const totalMoneyLimit = await getNumericSettingValue([
+      "total_money_limitation",
+    ]);
 
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({ error: "Amount must be a valid number" });
-    }
-
+    // =========================
+    // VALIDATE LIMITS
+    // =========================
     if (
       Number.isFinite(moneyLimit) &&
       moneyLimit > 0 &&
@@ -1979,37 +2086,27 @@ app.post("/auth/transaction", async (req, res) => {
       });
     }
 
-    const [customerTransactionCountRows] = await db.query(
-      `
-        SELECT COUNT(*) AS total_transactions
-        FROM transactions
-        WHERE customer_id = ?
-      `,
+    const [countRows] = await db.query(
+      `SELECT COUNT(*) AS total_transactions FROM transactions WHERE customer_id = ?`,
       [customer_id]
     );
 
-    const [customerMonthlyAmountRows] = await db.query(
-      `
-        SELECT COALESCE(SUM(amount), 0) AS current_month_total_amount
-        FROM transactions
-        WHERE customer_id = ?
-          AND YEAR(tnx_time) = YEAR(CURRENT_DATE())
-          AND MONTH(tnx_time) = MONTH(CURRENT_DATE())
-      `,
+    const [monthRows] = await db.query(
+      `SELECT COALESCE(SUM(amount),0) AS current_month_total_amount
+       FROM transactions
+       WHERE customer_id = ?
+       AND YEAR(tnx_time) = YEAR(CURRENT_DATE())
+       AND MONTH(tnx_time) = MONTH(CURRENT_DATE())`,
       [customer_id]
     );
 
-    const customerTransactionSummary = customerTransactionCountRows[0] || {};
-    const customerMonthlyAmountSummary = customerMonthlyAmountRows[0] || {};
-    const usedTransactionRounds = Number(customerTransactionSummary.total_transactions || 0);
-    const usedCurrentMonthTotalAmount = Number(
-      customerMonthlyAmountSummary.current_month_total_amount || 0
-    );
+    const usedTransactions = Number(countRows[0]?.total_transactions || 0);
+    const usedMonthlyAmount = Number(monthRows[0]?.current_month_total_amount || 0);
 
     if (
       Number.isFinite(transactionRoundLimit) &&
       transactionRoundLimit > 0 &&
-      usedTransactionRounds >= transactionRoundLimit
+      usedTransactions >= transactionRoundLimit
     ) {
       return res.status(400).json({
         error: `Transaction limit exceeded. You can transfer money only ${transactionRoundLimit} times.`,
@@ -2019,36 +2116,81 @@ app.post("/auth/transaction", async (req, res) => {
     if (
       Number.isFinite(totalMoneyLimit) &&
       totalMoneyLimit > 0 &&
-      usedCurrentMonthTotalAmount + parsedAmount > totalMoneyLimit
+      usedMonthlyAmount + parsedAmount > totalMoneyLimit
     ) {
       return res.status(400).json({
         error: `Monthly total money limit exceeded. Maximum allowed total for this month is ${totalMoneyLimit}.`,
       });
     }
 
+    // =========================
+    // RECEIVER LOGIC
+    // =========================
     let receiverId = receiver_id;
 
-    // If it's a new receiver, insert it into receivers table
     if (!receiver_id && new_receiver) {
       const [result] = await db.query(
-        "INSERT INTO receivers (name, number, account_type, status) VALUES (?, ?, ?, ?)",
+        `INSERT INTO receivers (name, number, account_type, status)
+         VALUES (?, ?, ?, ?)`,
         [new_receiver, new_receiver, account_type, "active"]
       );
+
       receiverId = result.insertId;
     }
 
-    // Insert transaction
+    // =========================
+    // 🔥 FEE CALCULATION (ADMIN CONTROLLED)
+    // =========================
+    const settings = await getSettingsByKeys([
+      "transaction_fee_type",
+      "transaction_fee_value",
+    ]);
+
+    const feeType = settings.transaction_fee_type || "percent";
+    const feeValue = Number(settings.transaction_fee_value) || 0;
+
+    let fee = 0;
+
+    if (feeType === "percent") {
+      fee = (parsedAmount * feeValue) / 100;
+    } else {
+      fee = feeValue;
+    }
+
+    const totalAmount = parsedAmount + fee;
+
+    // =========================
+    // INSERT TRANSACTION
+    // =========================
     const [tx] = await db.query(
-      "INSERT INTO transactions (customer_id, receiver_id, account_type, amount, status) VALUES (?, ?, ?, ?, ?)",
-      [customer_id, receiverId, account_type, parsedAmount, "pending"]
+      `INSERT INTO transactions 
+      (customer_id, receiver_id, account_type, amount, fee, total_amount, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        customer_id,
+        receiverId,
+        account_type,
+        parsedAmount,
+        fee,
+        totalAmount,
+        "pending",
+      ]
     );
 
+    // =========================
+    // NOTIFICATION
+    // =========================
     await createNotificationForAdminsOnTransactionRequest(tx.insertId);
 
-    res.json({ message: "Transaction created successfully", transactionId: tx.insertId });
+    res.json({
+      message: "Transaction created successfully",
+      transactionId: tx.insertId,
+      fee,
+      totalAmount,
+    });
   } catch (err) {
     console.error("Transaction creation error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
@@ -2237,3 +2379,74 @@ app.patch("/auth/settings/otp_type", async (req, res) => {
 });
 
 /////////////////////////////////////////
+app.get("/api/hero", async (req, res) => {
+  const [rows] = await db.query("SELECT * FROM hero_section WHERE id = 1");
+  res.json(rows[0]);
+});
+app.put("/api/hero", async (req, res) => {
+  const {
+    badge_text,
+    title,
+    highlight_text,
+    description,
+    primary_button_text,
+    primary_button_link,
+    secondary_button_text,
+    secondary_button_link,
+    stat1_value,
+    stat1_label,
+    stat2_value,
+    stat2_label,
+    stat3_value,
+    stat3_label,
+    card_amount,
+    card_recipients,
+    card_status,
+    card_verified
+  } = req.body;
+
+  await db.query(
+    `UPDATE hero_section SET
+      badge_text=?,
+      title=?,
+      highlight_text=?,
+      description=?,
+      primary_button_text=?,
+      primary_button_link=?,
+      secondary_button_text=?,
+      secondary_button_link=?,
+      stat1_value=?,
+      stat1_label=?,
+      stat2_value=?,
+      stat2_label=?,
+      stat3_value=?,
+      stat3_label=?,
+      card_amount=?,
+      card_recipients=?,
+      card_status=?,
+      card_verified=?
+    WHERE id=1`,
+    [
+      badge_text,
+      title,
+      highlight_text,
+      description,
+      primary_button_text,
+      primary_button_link,
+      secondary_button_text,
+      secondary_button_link,
+      stat1_value,
+      stat1_label,
+      stat2_value,
+      stat2_label,
+      stat3_value,
+      stat3_label,
+      card_amount,
+      card_recipients,
+      card_status,
+      card_verified
+    ]
+  );
+
+  res.json({ message: "Hero updated successfully" });
+});

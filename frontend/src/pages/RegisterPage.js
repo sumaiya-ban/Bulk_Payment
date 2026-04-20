@@ -42,9 +42,8 @@ if (otpType === "sms" && !phone) {
 }
   try {
     // 🔥 Call backend OTP API
-   await axios.post("http://localhost:8081/auth/send-otp", {
-  email,
-  phone,
+  await axios.post("http://localhost:8081/auth/send-otp", {
+  ...(otpType === "sms" ? { phone } : { email }),
   purpose: "register",
 });
     setFormData({ name, email, phone, password });
@@ -86,12 +85,12 @@ const verifyOtpAndRegister = async () => {
 
   try {
     // 🔥 VERIFY OTP FROM BACKEND
-    await axios.post("http://localhost:8081/auth/verify-otp", {
-      email,
-      otp: enteredOtp,
-      purpose: "register",
-    });
-
+   await axios.post("http://localhost:8081/auth/verify-otp", {
+  email,
+  phone,
+  otp: enteredOtp,
+  purpose: "register",
+});
     // 🔥 THEN REGISTER USER
     const res = await axios.post(
       "http://localhost:8081/auth/register",

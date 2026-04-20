@@ -452,6 +452,27 @@ const handleGenerateReport = async (tx) => {
 
     setShowForm(!showForm);
   };
+  const calculateFee = (amount) => {
+  const feeType =
+    settings.find((s) => s.setting_key === "transaction_fee_type")
+      ?.setting_value || "percent";
+
+  const feeValue =
+    Number(
+      settings.find((s) => s.setting_key === "transaction_fee_value")
+        ?.setting_value
+    ) || 0;
+
+  let fee = 0;
+
+  if (feeType === "percent") {
+    fee = (amount * feeValue) / 100;
+  } else if (feeType === "fixed") {
+    fee = feeValue;
+  }
+
+  return fee;
+};
 
  const handleSubmit = async (e) => {
   e.preventDefault();
@@ -517,13 +538,21 @@ const handleGenerateReport = async (tx) => {
       new_receiver: dataToSend.receiver_id ? null : dataToSend.receiver_input,
     });
 
-    await axios.post("http://localhost:8081/auth/transaction", {
-      customer_id: dataToSend.customer_id,
-      account_type: dataToSend.account_type,
-      amount: dataToSend.amount,
-      receiver_id: dataToSend.receiver_id || null,
-      new_receiver: dataToSend.receiver_id ? null : dataToSend.receiver_input,
-    });
+    const amount = Number(dataToSend.amount);
+
+// calculate fee from settings
+const fee = calculateFee(amount);
+const totalAmount = amount + fee;
+
+await axios.post("http://localhost:8081/auth/transaction", {
+  customer_id: dataToSend.customer_id,
+  account_type: dataToSend.account_type,
+  amount: amount,
+  fee: fee,
+  total_amount: totalAmount,
+  receiver_id: dataToSend.receiver_id || null,
+  new_receiver: dataToSend.receiver_id ? null : dataToSend.receiver_input,
+});
 
     alert("Transaction created successfully");
 
@@ -619,9 +648,16 @@ const currentTransactions = filteredData.slice(
   const paymentGateway = paymentTransaction
     ? getGatewayConfig(paymentTransaction.account_type)
     : getGatewayConfig("");
-
+const amountValue = Number(form.amount || 0);
+const liveFee = calculateFee(amountValue);
+const liveTotal = amountValue + liveFee;
   return (
     <div className="p-6">
+    {!isAdmin && (
+  <p className="text-sm text-gray-600 mt-1">
+    Fee: {liveFee} | Total: {liveTotal}
+  </p>
+)}
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-bold">Transactions</h1>
