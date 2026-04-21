@@ -3,12 +3,35 @@ import React, { useState } from "react";
 const ContactSection = () => {
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3000);
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const formData = {
+    name: e.target[0].value,
+    email: e.target[1].value,
+    message: e.target[2].value,
   };
 
+  try {
+   const res = await fetch("http://localhost:8081/api/contact", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      setSubmitted(true);
+      e.target.reset();
+      setTimeout(() => setSubmitted(false), 3000);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
   return (
     <section id="contact" className="py-20 bg-gray-100">
       <div className="max-w-7xl mx-auto px-6">

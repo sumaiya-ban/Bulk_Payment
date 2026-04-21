@@ -6,6 +6,7 @@ import TransactionSection from '../components/TransactionSection.js';
 import PartnersSection from '../components/PartnersSection.js';
 import ContactSection from '../components/ContactSection.js';
 import Footer from '../components/Footer.js';
+import SupportChatWidget from '../components/SupportChatWidget.js';
 
 const Index = () => {
     return (
@@ -17,6 +18,7 @@ const Index = () => {
             <PartnersSection/>
             <ContactSection/>
             <Footer/>
+            <SupportChatWidget/>
         </div> 
     );
 };

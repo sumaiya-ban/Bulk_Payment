@@ -22,6 +22,8 @@ const menuItems = [
   { titleEn: "Create Customer", titleBn: "কাস্টমার তৈরি", url: "/dashboard/customers", icon: Users, roles: ["admin"] },
   { titleEn: "Setting", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Wallet, roles: ["admin"] },
    { titleEn: "Landing Page", titleBn: "ল্যান্ডিং পেজ", url: "/dashboard/landing", icon: Wallet, roles: ["admin"] },
+   { titleEn: "Message Request", titleBn: "Message Request", url: "/dashboard/message-request", icon: Wallet, roles: ["admin"] },
+    { titleEn: "Support Chat", titleBn: "Support Chat", url: "/dashboard/support-chat", icon: Wallet, roles: ["admin", "customer"] },
 ];
 
 const financeItems = [

@@ -194,7 +194,118 @@ const ensureHeroSectionTable = async () => {
     )
   `);
 };
+const ensureContactsTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS contacts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(100) NOT NULL,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+  `);
+};
+const ensureSupportChatTables = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS support_conversations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_user_id INT NULL,
+      customer_name VARCHAR(100) NOT NULL,
+      customer_email VARCHAR(100) NOT NULL,
+      status ENUM('open','closed') DEFAULT 'open',
+      last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS support_messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      conversation_id INT NOT NULL,
+      sender_role ENUM('admin','customer') NOT NULL,
+      sender_name VARCHAR(100) NOT NULL,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (conversation_id) REFERENCES support_conversations(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+  `);
+};
+const initDB = async () => {
+  try {
+    await ensureNotificationsTable();
+    await ensureContactsTable();
+    await ensureSupportChatTables();
+    await ensureAppSettingsTable();
+    await ensureHeroSectionTable();
+
+    console.log("✅ Database ready");
+  } catch (error) {
+    console.error("❌ Error initializing DB:", error);
+  }
+};
+
+initDB();
 // ✅ NEW FUNCTION
+const findSupportConversation = async ({ customerUserId, customerEmail, includeClosed = false }) => {
+  const filters = [];
+  const params = [];
+
+  if (customerUserId) {
+    filters.push("customer_user_id = ?");
+    params.push(customerUserId);
+  } else if (customerEmail) {
+    filters.push("customer_email = ?");
+    params.push(customerEmail);
+  }
+
+  if (filters.length === 0) {
+    return null;
+  }
+
+  if (!includeClosed) {
+    filters.push("status = 'open'");
+  }
+
+  const [rows] = await db.query(
+    `
+      SELECT *
+      FROM support_conversations
+      WHERE ${filters.join(" AND ")}
+      ORDER BY last_message_at DESC, id DESC
+      LIMIT 1
+    `,
+    params
+  );
+
+  return rows[0] || null;
+};
+
+const createSupportMessage = async ({ conversationId, senderRole, senderName, message }) => {
+  const trimmedMessage = String(message || "").trim();
+
+  if (!trimmedMessage) {
+    throw new Error("Message is required");
+  }
+
+  await db.query(
+    `
+      INSERT INTO support_messages (conversation_id, sender_role, sender_name, message)
+      VALUES (?, ?, ?, ?)
+    `,
+    [conversationId, senderRole, senderName, trimmedMessage]
+  );
+
+  await db.query(
+    `
+      UPDATE support_conversations
+      SET last_message_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `,
+    [conversationId]
+  );
+};
+
 const getSettingsByKeys = async (keys = []) => {
   if (!Array.isArray(keys) || keys.length === 0) {
     return {};
@@ -571,6 +682,7 @@ const initDatabase = async () => {
 
     await ensureNotificationsTable();
     await ensureAppSettingsTable();
+    await ensureSupportChatTables();
     await ensureTransactionNotificationTrigger();
 
     console.log("Database initialized with InnoDB");
@@ -1976,6 +2088,7 @@ app.get("/", (req,res)=>{res.send("Server is running on port "+PORT);});
   try {
     await ensureAppSettingsTable();
     await ensureNotificationsTable();
+    await ensureSupportChatTables();
     await ensureTransactionStatusColumn();
     await ensureUserStatusColumn();
     await ensureHeroSectionTable(); // ✅ ADD THIS
@@ -2449,4 +2562,329 @@ app.put("/api/hero", async (req, res) => {
   );
 
   res.json({ message: "Hero updated successfully" });
+});
+app.post("/api/contact", async (req, res) => {
+  console.log("📩 Contact API hit"); // 👈 ADD THIS
+
+  const { name, email, message } = req.body;
+
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: "All fields required" });
+  }
+
+  try {
+    await db.query(
+      "INSERT INTO contacts (name, email, message) VALUES (?, ?, ?)",
+      [name, email, message]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+app.get("/api/contacts", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT * FROM contacts ORDER BY created_at DESC"
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch contacts" });
+  }
+});
+app.post("/api/support-chat/conversations", async (req, res) => {
+  const { customer_user_id, customer_name, customer_email } = req.body;
+
+  const trimmedName = String(customer_name || "").trim();
+  const trimmedEmail = String(customer_email || "").trim().toLowerCase();
+  const numericUserId =
+    customer_user_id !== undefined &&
+    customer_user_id !== null &&
+    customer_user_id !== ""
+      ? Number(customer_user_id)
+      : null;
+
+  if (!trimmedName || !trimmedEmail) {
+    return res.status(400).json({ error: "Customer name and email are required" });
+  }
+
+  try {
+    let conversation = await findSupportConversation({
+      customerUserId: Number.isFinite(numericUserId) ? numericUserId : null,
+      customerEmail: trimmedEmail,
+    });
+
+    if (!conversation) {
+      const [result] = await db.query(
+        `
+          INSERT INTO support_conversations
+          (customer_user_id, customer_name, customer_email, status, last_message_at)
+          VALUES (?, ?, ?, 'open', CURRENT_TIMESTAMP)
+        `,
+        [Number.isFinite(numericUserId) ? numericUserId : null, trimmedName, trimmedEmail]
+      );
+
+      const [rows] = await db.query(
+        "SELECT * FROM support_conversations WHERE id = ? LIMIT 1",
+        [result.insertId]
+      );
+      conversation = rows[0];
+    } else if (
+      conversation.customer_name !== trimmedName ||
+      conversation.customer_email !== trimmedEmail ||
+      (Number.isFinite(numericUserId) && conversation.customer_user_id !== numericUserId)
+    ) {
+      await db.query(
+        `
+          UPDATE support_conversations
+          SET customer_name = ?, customer_email = ?, customer_user_id = COALESCE(?, customer_user_id)
+          WHERE id = ?
+        `,
+        [trimmedName, trimmedEmail, Number.isFinite(numericUserId) ? numericUserId : null, conversation.id]
+      );
+
+      const [rows] = await db.query(
+        "SELECT * FROM support_conversations WHERE id = ? LIMIT 1",
+        [conversation.id]
+      );
+      conversation = rows[0];
+    }
+
+    res.json(conversation);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create conversation" });
+  }
+});
+app.get("/api/support-chat/conversations", async (req, res) => {
+  const role = String(req.query.role || "").toLowerCase();
+  const userId = Number(req.query.user_id);
+  const email = String(req.query.email || "").trim().toLowerCase();
+
+  try {
+    let rows;
+
+    if (role === "admin") {
+      [rows] = await db.query(`
+        SELECT
+          c.*,
+          m.message AS last_message,
+          m.sender_role AS last_sender_role,
+          (
+            SELECT COUNT(*)
+            FROM support_messages sm
+            WHERE sm.conversation_id = c.id
+          ) AS message_count
+        FROM support_conversations c
+        LEFT JOIN support_messages m
+          ON m.id = (
+            SELECT id
+            FROM support_messages
+            WHERE conversation_id = c.id
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+          )
+        ORDER BY c.last_message_at DESC, c.id DESC
+      `);
+    } else {
+      if (!Number.isFinite(userId) && !email) {
+        return res.status(400).json({ error: "User id or email is required" });
+      }
+
+      const filters = [];
+      const params = [];
+
+      if (Number.isFinite(userId)) {
+        filters.push("c.customer_user_id = ?");
+        params.push(userId);
+      }
+
+      if (email) {
+        filters.push("c.customer_email = ?");
+        params.push(email);
+      }
+
+      [rows] = await db.query(
+        `
+          SELECT
+            c.*,
+            m.message AS last_message,
+            m.sender_role AS last_sender_role,
+            (
+              SELECT COUNT(*)
+              FROM support_messages sm
+              WHERE sm.conversation_id = c.id
+            ) AS message_count
+          FROM support_conversations c
+          LEFT JOIN support_messages m
+            ON m.id = (
+              SELECT id
+              FROM support_messages
+              WHERE conversation_id = c.id
+              ORDER BY created_at DESC, id DESC
+              LIMIT 1
+            )
+          WHERE ${filters.join(" OR ")}
+          ORDER BY c.last_message_at DESC, c.id DESC
+        `,
+        params
+      );
+    }
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch conversations" });
+  }
+});
+app.get("/api/support-chat/conversations/:conversationId/messages", async (req, res) => {
+  const conversationId = Number(req.params.conversationId);
+  const role = String(req.query.role || "").toLowerCase();
+  const userId = Number(req.query.user_id);
+  const email = String(req.query.email || "").trim().toLowerCase();
+
+  if (!Number.isFinite(conversationId)) {
+    return res.status(400).json({ error: "Invalid conversation id" });
+  }
+
+  try {
+    const [conversationRows] = await db.query(
+      "SELECT * FROM support_conversations WHERE id = ? LIMIT 1",
+      [conversationId]
+    );
+
+    if (conversationRows.length === 0) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    const conversation = conversationRows[0];
+    const isAdmin = role === "admin";
+    const ownsConversation =
+      (Number.isFinite(userId) && conversation.customer_user_id === userId) ||
+      (email && conversation.customer_email === email);
+
+    if (!isAdmin && !ownsConversation) {
+      return res.status(403).json({ error: "You do not have access to this conversation" });
+    }
+
+    const [messages] = await db.query(
+      `
+        SELECT *
+        FROM support_messages
+        WHERE conversation_id = ?
+        ORDER BY created_at ASC, id ASC
+      `,
+      [conversationId]
+    );
+
+    res.json({
+      conversation,
+      messages,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+app.post("/api/support-chat/conversations/:conversationId/messages", async (req, res) => {
+  const conversationId = Number(req.params.conversationId);
+  const { sender_role, sender_name, message, user_id, email } = req.body;
+
+  if (!Number.isFinite(conversationId)) {
+    return res.status(400).json({ error: "Invalid conversation id" });
+  }
+
+  const senderRole = String(sender_role || "").trim().toLowerCase();
+  const senderName = String(sender_name || "").trim();
+  const trimmedMessage = String(message || "").trim();
+  const numericUserId =
+    user_id !== undefined && user_id !== null && user_id !== ""
+      ? Number(user_id)
+      : null;
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+
+  if (!["admin", "customer"].includes(senderRole)) {
+    return res.status(400).json({ error: "Sender role must be admin or customer" });
+  }
+
+  if (!senderName || !trimmedMessage) {
+    return res.status(400).json({ error: "Sender name and message are required" });
+  }
+
+  try {
+    const [conversationRows] = await db.query(
+      "SELECT * FROM support_conversations WHERE id = ? LIMIT 1",
+      [conversationId]
+    );
+
+    if (conversationRows.length === 0) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    const conversation = conversationRows[0];
+
+    if (senderRole === "customer") {
+      const ownsConversation =
+        (Number.isFinite(numericUserId) && conversation.customer_user_id === numericUserId) ||
+        (normalizedEmail && conversation.customer_email === normalizedEmail);
+
+      if (!ownsConversation) {
+        return res.status(403).json({ error: "You do not have access to this conversation" });
+      }
+    }
+
+    await createSupportMessage({
+      conversationId,
+      senderRole,
+      senderName,
+      message: trimmedMessage,
+    });
+
+    const [messages] = await db.query(
+      `
+        SELECT *
+        FROM support_messages
+        WHERE conversation_id = ?
+        ORDER BY created_at ASC, id ASC
+      `,
+      [conversationId]
+    );
+
+    res.json({
+      success: true,
+      messages,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to send message" });
+  }
+});
+app.post("/api/contact/reply", async (req, res) => {
+  const { email, message, name } = req.body;
+
+  if (!email || !message) {
+    return res.status(400).json({ error: "Email and message required" });
+  }
+
+  try {
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: "Response from BulkPay Support",
+      html: `
+        <p>Hi ${name || "User"},</p>
+        <p>${message}</p>
+        <br/>
+        <p>Best regards,<br/>BulkPay Team</p>
+      `,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to send email" });
+  }
 });

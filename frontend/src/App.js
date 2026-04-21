@@ -20,6 +20,8 @@ import Profile from "./pages/Profile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import Setting from "./components/dashboard/Setting";
 import Landing from "./components/dashboard/Landing";
+import MessageRequest from "./components/dashboard/MessageRequest";
+import SupportChatPage from "./components/dashboard/SupportChatPage";
 
 function App() {
   return (
@@ -47,6 +49,8 @@ function App() {
  <Route path="verification" element={<KYCVerificationPage />}  />
  <Route path="setting" element={<Setting />}  />
  <Route path="landing" element={<Landing />}  />
+ <Route path="message-request" element={<MessageRequest />}  />
+ <Route path="support-chat" element={<SupportChatPage />}  />
         </Route>
 
       </Routes>
