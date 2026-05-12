@@ -1,62 +1,89 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { BASE_URL } from "../constants";
 
-const services = [
-  {
-    icon: "💳",
-    title: "Mass Payouts",
-    description:
-      "Send payments to thousands of recipients simultaneously with just one upload.",
-  },
-  {
-    icon: "👥",
-    title: "Payroll Processing",
-    description:
-      "Automate salary disbursements for your entire workforce effortlessly.",
-  },
-  {
-    icon: "📊",
-    title: "Real-Time Analytics",
-    description:
-      "Track every transaction with detailed dashboards and instant reporting.",
-  },
-  {
-    icon: "⏰",
-    title: "Scheduled Payments",
-    description:
-      "Set up recurring payments and schedule future transactions with ease.",
-  },
-  {
-    icon: "🛡️",
-    title: "Fraud Protection",
-    description:
-      "Advanced AI-powered fraud detection keeps every transaction secure.",
-  },
-  {
-    icon: "💱",
-    title: "Multi-Currency",
-    description:
-      "Pay anyone, anywhere in the world with automatic currency conversion.",
-  },
-];
+const defaultData = {
+  badge_text: "Our Services",
+  title: "Everything You Need for Bulk Payments",
+  description:
+    "A complete suite of tools to manage, automate, and scale your payment operations.",
+  service1_icon: "CARD",
+  service1_title: "Mass Payouts",
+  service1_description:
+    "Send payments to thousands of recipients simultaneously with just one upload.",
+  service2_icon: "USERS",
+  service2_title: "Payroll Processing",
+  service2_description:
+    "Automate salary disbursements for your entire workforce effortlessly.",
+  service3_icon: "CHART",
+  service3_title: "Real-Time Analytics",
+  service3_description:
+    "Track every transaction with detailed dashboards and instant reporting.",
+  service4_icon: "CLOCK",
+  service4_title: "Scheduled Payments",
+  service4_description:
+    "Set up recurring payments and schedule future transactions with ease.",
+  service5_icon: "SHIELD",
+  service5_title: "Fraud Protection",
+  service5_description: "Advanced fraud detection keeps every transaction secure.",
+  service6_icon: "GLOBE",
+  service6_title: "Multi-Currency",
+  service6_description:
+    "Pay anyone, anywhere in the world with automatic currency conversion.",
+};
+
+const iconMap = {
+  CARD: "💳",
+  USERS: "👥",
+  CHART: "📊",
+  CLOCK: "⏰",
+  SHIELD: "🛡️",
+  GLOBE: "🌐",
+};
+
+const getServices = (data) =>
+  [1, 2, 3, 4, 5, 6]
+    .map((num) => ({
+      icon: iconMap[data[`service${num}_icon`]] || data[`service${num}_icon`],
+      title: data[`service${num}_title`],
+      description: data[`service${num}_description`],
+    }))
+    .filter((service) => service.title);
 
 const ServiceSection = () => {
+  const [data, setData] = useState(defaultData);
+
+  useEffect(() => {
+    const fetchSection = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/services-section`);
+        setData(res.data || defaultData);
+      } catch (err) {
+        console.log("Services section fetch error:", err);
+        setData(defaultData);
+      }
+    };
+
+    fetchSection();
+  }, []);
+
+  const services = getServices(data);
+
   return (
     <section id="services" className="py-24 bg-gray-50">
       <div className="max-w-7xl mx-auto px-6">
-        {/* Header */}
         <div className="text-center mb-16">
           <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-3">
-            Our Services
+            {data.badge_text}
           </p>
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Everything You Need for Bulk Payments
+            {data.title}
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            A complete suite of tools to manage, automate, and scale your payment operations.
+            {data.description}
           </p>
         </div>
 
-        {/* Services Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service) => (
             <div
@@ -69,7 +96,9 @@ const ServiceSection = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {service.title}
               </h3>
-              <p className="text-sm text-gray-600 leading-relaxed">{service.description}</p>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {service.description}
+              </p>
             </div>
           ))}
         </div>

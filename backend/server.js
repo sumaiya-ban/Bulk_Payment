@@ -194,6 +194,228 @@ const ensureHeroSectionTable = async () => {
     )
   `);
 };
+const ensureServicesSectionTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS services_section (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      badge_text VARCHAR(255),
+      title VARCHAR(255),
+      description TEXT,
+      service1_icon VARCHAR(50),
+      service1_title VARCHAR(255),
+      service1_description TEXT,
+      service2_icon VARCHAR(50),
+      service2_title VARCHAR(255),
+      service2_description TEXT,
+      service3_icon VARCHAR(50),
+      service3_title VARCHAR(255),
+      service3_description TEXT,
+      service4_icon VARCHAR(50),
+      service4_title VARCHAR(255),
+      service4_description TEXT,
+      service5_icon VARCHAR(50),
+      service5_title VARCHAR(255),
+      service5_description TEXT,
+      service6_icon VARCHAR(50),
+      service6_title VARCHAR(255),
+      service6_description TEXT
+    ) ENGINE=InnoDB;
+  `);
+
+  await db.query(`
+    INSERT INTO services_section (
+      id, badge_text, title, description,
+      service1_icon, service1_title, service1_description,
+      service2_icon, service2_title, service2_description,
+      service3_icon, service3_title, service3_description,
+      service4_icon, service4_title, service4_description,
+      service5_icon, service5_title, service5_description,
+      service6_icon, service6_title, service6_description
+    )
+    SELECT 1,
+      'Our Services',
+      'Everything You Need for Bulk Payments',
+      'A complete suite of tools to manage, automate, and scale your payment operations.',
+      'CARD', 'Mass Payouts', 'Send payments to thousands of recipients simultaneously with just one upload.',
+      'USERS', 'Payroll Processing', 'Automate salary disbursements for your entire workforce effortlessly.',
+      'CHART', 'Real-Time Analytics', 'Track every transaction with detailed dashboards and instant reporting.',
+      'CLOCK', 'Scheduled Payments', 'Set up recurring payments and schedule future transactions with ease.',
+      'SHIELD', 'Fraud Protection', 'Advanced fraud detection keeps every transaction secure.',
+      'GLOBE', 'Multi-Currency', 'Pay anyone, anywhere in the world with automatic currency conversion.'
+    WHERE NOT EXISTS (SELECT 1 FROM services_section WHERE id = 1)
+  `);
+};
+
+const ensureTransactionSectionTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS transaction_section (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      badge_text VARCHAR(255),
+      title VARCHAR(255),
+      description TEXT,
+      feature1 VARCHAR(255),
+      feature2 VARCHAR(255),
+      feature3 VARCHAR(255),
+      feature4 VARCHAR(255),
+      feature5 VARCHAR(255),
+      feature6 VARCHAR(255),
+      card_title VARCHAR(255),
+      card_badge_text VARCHAR(100),
+      tx1_name VARCHAR(255),
+      tx1_amount VARCHAR(100),
+      tx1_status VARCHAR(100),
+      tx1_count VARCHAR(100),
+      tx2_name VARCHAR(255),
+      tx2_amount VARCHAR(100),
+      tx2_status VARCHAR(100),
+      tx2_count VARCHAR(100),
+      tx3_name VARCHAR(255),
+      tx3_amount VARCHAR(100),
+      tx3_status VARCHAR(100),
+      tx3_count VARCHAR(100),
+      tx4_name VARCHAR(255),
+      tx4_amount VARCHAR(100),
+      tx4_status VARCHAR(100),
+      tx4_count VARCHAR(100)
+    ) ENGINE=InnoDB;
+  `);
+
+  await db.query(`
+    INSERT INTO transaction_section (
+      id, badge_text, title, description,
+      feature1, feature2, feature3, feature4, feature5, feature6,
+      card_title, card_badge_text,
+      tx1_name, tx1_amount, tx1_status, tx1_count,
+      tx2_name, tx2_amount, tx2_status, tx2_count,
+      tx3_name, tx3_amount, tx3_status, tx3_count,
+      tx4_name, tx4_amount, tx4_status, tx4_count
+    )
+    SELECT 1,
+      'Transactions',
+      'Seamless Transaction Processing',
+      'From a single payment to millions, our platform handles it all. Upload your payment file, review, approve, and watch it happen.',
+      'CSV and API batch upload support',
+      'Instant settlement to 150+ countries',
+      'Real-time transaction tracking',
+      'Automatic reconciliation reports',
+      'Multi-level approval workflows',
+      'Webhook notifications for every event',
+      'Recent Transactions',
+      'Live',
+      'Payroll - March', '$124,500', 'Completed', '320 recipients',
+      'Vendor Payments', '$45,230', 'Processing', '48 recipients',
+      'Refunds Batch', '$8,920', 'Completed', '156 recipients',
+      'Contractor Payout', '$67,100', 'Scheduled', '89 recipients'
+    WHERE NOT EXISTS (SELECT 1 FROM transaction_section WHERE id = 1)
+  `);
+};
+
+const ensurePartnersSectionTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS partners_section (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      title VARCHAR(255),
+      partner1_name VARCHAR(100),
+      partner1_logo VARCHAR(500),
+      partner2_name VARCHAR(100),
+      partner2_logo VARCHAR(500),
+      partner3_name VARCHAR(100),
+      partner3_logo VARCHAR(500),
+      partner4_name VARCHAR(100),
+      partner4_logo VARCHAR(500),
+      partner5_name VARCHAR(100),
+      partner5_logo VARCHAR(500),
+      partner6_name VARCHAR(100),
+      partner6_logo VARCHAR(500)
+    ) ENGINE=InnoDB;
+  `);
+
+  await ensureColumn("partners_section", "partner4_name", "VARCHAR(100)");
+  await ensureColumn("partners_section", "partner4_logo", "VARCHAR(500)");
+  await ensureColumn("partners_section", "partner5_name", "VARCHAR(100)");
+  await ensureColumn("partners_section", "partner5_logo", "VARCHAR(500)");
+  await ensureColumn("partners_section", "partner6_name", "VARCHAR(100)");
+  await ensureColumn("partners_section", "partner6_logo", "VARCHAR(500)");
+
+  await db.query(`
+    INSERT INTO partners_section (
+      id, title,
+      partner1_name, partner1_logo,
+      partner2_name, partner2_logo,
+      partner3_name, partner3_logo
+    )
+    SELECT 1,
+      'Trusted by Industry Leaders',
+      'Bkash', 'https://download.logo.wine/logo/BKash/BKash-Logo.wine.png',
+      'Nagad', 'https://download.logo.wine/logo/Nagad/Nagad-Logo.wine.png',
+      'Rocket', 'https://download.logo.wine/logo/Dutch-Bangla_Bank_Rocket/Dutch-Bangla_Bank_Rocket-Logo.wine.png'
+    WHERE NOT EXISTS (SELECT 1 FROM partners_section WHERE id = 1)
+  `);
+};
+
+const ensureFooterSectionTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS footer_section (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      brand_text VARCHAR(100),
+      description TEXT,
+      product_title VARCHAR(100),
+      product_link1_label VARCHAR(100),
+      product_link1_href VARCHAR(255),
+      product_link2_label VARCHAR(100),
+      product_link2_href VARCHAR(255),
+      product_link3_label VARCHAR(100),
+      product_link3_href VARCHAR(255),
+      product_link4_label VARCHAR(100),
+      product_link4_href VARCHAR(255),
+      company_title VARCHAR(100),
+      company_link1_label VARCHAR(100),
+      company_link1_href VARCHAR(255),
+      company_link2_label VARCHAR(100),
+      company_link2_href VARCHAR(255),
+      company_link3_label VARCHAR(100),
+      company_link3_href VARCHAR(255),
+      company_link4_label VARCHAR(100),
+      company_link4_href VARCHAR(255),
+      legal_title VARCHAR(100),
+      legal_link1_label VARCHAR(100),
+      legal_link1_href VARCHAR(255),
+      legal_link2_label VARCHAR(100),
+      legal_link2_href VARCHAR(255),
+      legal_link3_label VARCHAR(100),
+      legal_link3_href VARCHAR(255),
+      copyright_text VARCHAR(255)
+    ) ENGINE=InnoDB;
+  `);
+
+  await db.query(`
+    INSERT INTO footer_section (
+      id, brand_text, description,
+      product_title, product_link1_label, product_link1_href, product_link2_label, product_link2_href,
+      product_link3_label, product_link3_href, product_link4_label, product_link4_href,
+      company_title, company_link1_label, company_link1_href, company_link2_label, company_link2_href,
+      company_link3_label, company_link3_href, company_link4_label, company_link4_href,
+      legal_title, legal_link1_label, legal_link1_href, legal_link2_label, legal_link2_href,
+      legal_link3_label, legal_link3_href, copyright_text
+    )
+    SELECT 1,
+      'BulkPay',
+      'The modern platform for bulk payments. Fast, secure, global.',
+      'Product', 'Services', '#services', 'Transactions', '#transaction', 'Pricing', '#', 'API Docs', '#',
+      'Company', 'About', '#', 'Partners', '#partners', 'Careers', '#', 'Contact', '#contact',
+      'Legal', 'Privacy Policy', '#', 'Terms of Service', '#', 'Compliance', '#',
+      'Copyright 2026 BulkPay. All rights reserved.'
+    WHERE NOT EXISTS (SELECT 1 FROM footer_section WHERE id = 1)
+  `);
+};
+
+const ensureLandingCmsTables = async () => {
+  await ensureHeroSectionTable();
+  await ensureServicesSectionTable();
+  await ensureTransactionSectionTable();
+  await ensurePartnersSectionTable();
+  await ensureFooterSectionTable();
+};
 const ensureContactsTable = async () => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS contacts (
@@ -237,7 +459,7 @@ const initDB = async () => {
     await ensureContactsTable();
     await ensureSupportChatTables();
     await ensureAppSettingsTable();
-    await ensureHeroSectionTable();
+    await ensureLandingCmsTables();
 
     console.log("✅ Database ready");
   } catch (error) {
@@ -683,6 +905,7 @@ const initDatabase = async () => {
     await ensureNotificationsTable();
     await ensureAppSettingsTable();
     await ensureSupportChatTables();
+    await ensureLandingCmsTables();
     await ensureTransactionNotificationTrigger();
 
     console.log("Database initialized with InnoDB");
@@ -2091,7 +2314,7 @@ app.get("/", (req,res)=>{res.send("Server is running on port "+PORT);});
     await ensureSupportChatTables();
     await ensureTransactionStatusColumn();
     await ensureUserStatusColumn();
-    await ensureHeroSectionTable(); // ✅ ADD THIS
+    await ensureLandingCmsTables();
   } catch (err) {
     console.error("Server init error:", err);
   }
@@ -2562,6 +2785,101 @@ app.put("/api/hero", async (req, res) => {
   );
 
   res.json({ message: "Hero updated successfully" });
+});
+app.get("/api/services-section", async (req, res) => {
+  try {
+    await ensureServicesSectionTable();
+    const [rows] = await db.query("SELECT * FROM services_section WHERE id = 1");
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch services section" });
+  }
+});
+
+app.put("/api/services-section", async (req, res) => {
+  try {
+    await ensureServicesSectionTable();
+    const data = { ...req.body };
+    delete data.id;
+    await db.query("UPDATE services_section SET ? WHERE id = 1", [data]);
+    res.json({ message: "Services section updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update services section" });
+  }
+});
+
+app.get("/api/transaction-section", async (req, res) => {
+  try {
+    await ensureTransactionSectionTable();
+    const [rows] = await db.query("SELECT * FROM transaction_section WHERE id = 1");
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch transaction section" });
+  }
+});
+
+app.put("/api/transaction-section", async (req, res) => {
+  try {
+    await ensureTransactionSectionTable();
+    const data = { ...req.body };
+    delete data.id;
+    await db.query("UPDATE transaction_section SET ? WHERE id = 1", [data]);
+    res.json({ message: "Transaction section updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update transaction section" });
+  }
+});
+
+app.get("/api/partners-section", async (req, res) => {
+  try {
+    await ensurePartnersSectionTable();
+    const [rows] = await db.query("SELECT * FROM partners_section WHERE id = 1");
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch partners section" });
+  }
+});
+
+app.put("/api/partners-section", async (req, res) => {
+  try {
+    await ensurePartnersSectionTable();
+    const data = { ...req.body };
+    delete data.id;
+    await db.query("UPDATE partners_section SET ? WHERE id = 1", [data]);
+    res.json({ message: "Partners section updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update partners section" });
+  }
+});
+
+app.get("/api/footer-section", async (req, res) => {
+  try {
+    await ensureFooterSectionTable();
+    const [rows] = await db.query("SELECT * FROM footer_section WHERE id = 1");
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch footer section" });
+  }
+});
+
+app.put("/api/footer-section", async (req, res) => {
+  try {
+    await ensureFooterSectionTable();
+    const data = { ...req.body };
+    delete data.id;
+    await db.query("UPDATE footer_section SET ? WHERE id = 1", [data]);
+    res.json({ message: "Footer section updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update footer section" });
+  }
 });
 app.post("/api/contact", async (req, res) => {
   console.log("📩 Contact API hit"); // 👈 ADD THIS
