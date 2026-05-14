@@ -41,10 +41,22 @@ const iconMap = {
   GLOBE: "🌐",
 };
 
+const getImageSrc = (value) => {
+  if (!value) return "";
+  if (/^(https?:)?\/\//.test(value) || value.startsWith("data:image")) {
+    return value;
+  }
+  if (value.startsWith("/uploads/")) {
+    return `${BASE_URL}${value}`;
+  }
+  return "";
+};
+
 const getServices = (data) =>
   [1, 2, 3, 4, 5, 6]
     .map((num) => ({
       icon: iconMap[data[`service${num}_icon`]] || data[`service${num}_icon`],
+      iconImage: getImageSrc(data[`service${num}_icon`]),
       title: data[`service${num}_title`],
       description: data[`service${num}_description`],
     }))
@@ -91,7 +103,15 @@ const ServiceSection = () => {
               className="bg-white rounded-2xl p-8 border border-gray-200 shadow hover:shadow-lg transition-shadow"
             >
               <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-5 text-xl">
-                {service.icon}
+                {service.iconImage ? (
+                  <img
+                    src={service.iconImage}
+                    alt=""
+                    className="w-8 h-8 object-contain"
+                  />
+                ) : (
+                  service.icon
+                )}
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {service.title}

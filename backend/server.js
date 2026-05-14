@@ -23,6 +23,8 @@ const transporter = nodemailer.createTransport({
 });
 const profileDir = path.join(__dirname, "uploads/profiles");
 if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
+const serviceIconDir = path.join(__dirname, "uploads/services");
+if (!fs.existsSync(serviceIconDir)) fs.mkdirSync(serviceIconDir, { recursive: true });
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, profileDir),
@@ -30,6 +32,13 @@ const profileStorage = multer.diskStorage({
 });
 
 const uploadProfile = multer({ storage: profileStorage });
+
+const serviceIconStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, serviceIconDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+});
+
+const uploadServiceIcon = multer({ storage: serviceIconStorage });
 
 // temporary OTP store (use DB in production)
 const otpStore = {};
@@ -201,26 +210,32 @@ const ensureServicesSectionTable = async () => {
       badge_text VARCHAR(255),
       title VARCHAR(255),
       description TEXT,
-      service1_icon VARCHAR(50),
+      service1_icon VARCHAR(500),
       service1_title VARCHAR(255),
       service1_description TEXT,
-      service2_icon VARCHAR(50),
+      service2_icon VARCHAR(500),
       service2_title VARCHAR(255),
       service2_description TEXT,
-      service3_icon VARCHAR(50),
+      service3_icon VARCHAR(500),
       service3_title VARCHAR(255),
       service3_description TEXT,
-      service4_icon VARCHAR(50),
+      service4_icon VARCHAR(500),
       service4_title VARCHAR(255),
       service4_description TEXT,
-      service5_icon VARCHAR(50),
+      service5_icon VARCHAR(500),
       service5_title VARCHAR(255),
       service5_description TEXT,
-      service6_icon VARCHAR(50),
+      service6_icon VARCHAR(500),
       service6_title VARCHAR(255),
       service6_description TEXT
     ) ENGINE=InnoDB;
   `);
+
+  await Promise.all(
+    [1, 2, 3, 4, 5, 6].map((num) =>
+      db.query(`ALTER TABLE services_section MODIFY COLUMN service${num}_icon VARCHAR(500)`)
+    )
+  );
 
   await db.query(`
     INSERT INTO services_section (
@@ -1267,6 +1282,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/uploads/kyc", express.static(uploadDir)); // serve uploaded images
 app.use("/uploads/profiles", express.static(profileDir));
+app.use("/uploads/services", express.static(serviceIconDir));
 
 // ================= AUTH MIDDLEWARE =================
 const authMiddleware = (req, res, next) => {
@@ -2808,6 +2824,17 @@ app.put("/api/services-section", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Failed to update services section" });
   }
+});
+
+app.post("/api/services-section/icon-upload", uploadServiceIcon.single("icon"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Icon image is required" });
+  }
+
+  res.json({
+    filename: req.file.filename,
+    url: `/uploads/services/${req.file.filename}`,
+  });
 });
 
 app.get("/api/transaction-section", async (req, res) => {

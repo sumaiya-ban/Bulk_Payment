@@ -255,6 +255,7 @@ const fieldGroups = {
     { title: "Company Links", fields: ["company_title", "company_link1_label", "company_link1_href", "company_link2_label", "company_link2_href", "company_link3_label", "company_link3_href", "company_link4_label", "company_link4_href"] },
     { title: "Legal Links", fields: ["legal_title", "legal_link1_label", "legal_link1_href", "legal_link2_label", "legal_link2_href", "legal_link3_label", "legal_link3_href"] },
   ],
+  
 };
 
 const prettify = (field) =>
@@ -264,6 +265,20 @@ const prettify = (field) =>
 
 const isLongField = (field) =>
   field.includes("description") || field.includes("copyright");
+
+const isServiceIconField = (field) =>
+  /^service\d+_icon$/.test(field);
+
+const getImageSrc = (value) => {
+  if (!value) return "";
+  if (/^(https?:)?\/\//.test(value) || value.startsWith("data:image")) {
+    return value;
+  }
+  if (value.startsWith("/uploads/")) {
+    return `${BASE_URL}${value}`;
+  }
+  return "";
+};
 
 const getVisiblePartnerCount = (partnersForm = {}) => {
   const usedSlots = [1, 2, 3, 4, 5, 6].filter(
@@ -290,6 +305,7 @@ const Landing = () => {
   const [showAddPartnerForm, setShowAddPartnerForm] = useState(false);
   const [newPartner, setNewPartner] = useState({ name: "", logo: "" });
   const [editingPartner, setEditingPartner] = useState(null);
+  const [uploadingServiceIcons, setUploadingServiceIcons] = useState({});
 
   const inputStyle = {
     width: "100%",
@@ -319,7 +335,7 @@ const Landing = () => {
   const sectionStyle = {
     background: "#f0faff",
     borderRadius: "16px",
-    // padding: "24px",
+     padding: "16px",
     boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
     marginBottom: "24px",
     border: "1px solid #e5e7eb",
@@ -372,6 +388,28 @@ const Landing = () => {
       alert(`${config.label} update failed`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleServiceIconUpload = async (field, file) => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("icon", file);
+
+    try {
+      setUploadingServiceIcons((prev) => ({ ...prev, [field]: true }));
+      const res = await axios.post(
+        `${BASE_URL}/api/services-section/icon-upload`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      handleChange("services", field, res.data.url || "");
+    } catch (err) {
+      console.log(err);
+      alert("Service icon upload failed");
+    } finally {
+      setUploadingServiceIcons((prev) => ({ ...prev, [field]: false }));
     }
   };
 
@@ -430,6 +468,51 @@ const Landing = () => {
 
   const renderField = (field) => {
     const value = forms[activeSection]?.[field] || "";
+    const imageSrc = getImageSrc(value);
+
+    if (activeSection === "services" && isServiceIconField(field)) {
+      return (
+        <label key={field} style={labelStyle}>
+          {prettify(field)}
+          <input
+            style={inputStyle}
+            value={value}
+            placeholder="Icon keyword, image URL, or uploaded image path"
+            onChange={(e) => handleChange(activeSection, field, e.target.value)}
+          />
+          <input
+            type="file"
+            accept="image/*"
+            style={{ ...inputStyle, padding: "10px 12px" }}
+            disabled={uploadingServiceIcons[field]}
+            onChange={(e) => handleServiceIconUpload(field, e.target.files?.[0])}
+          />
+          {uploadingServiceIcons[field] ? (
+            <span style={{ color: "#6b7280", fontSize: "13px" }}>Uploading...</span>
+          ) : imageSrc ? (
+            <img
+              src={imageSrc}
+              alt={prettify(field)}
+              style={{
+                width: "54px",
+                height: "54px",
+                objectFit: "contain",
+                border: "1px solid #e5e7eb",
+                borderRadius: "10px",
+                background: "#ffffff",
+                marginTop: "8px",
+                display: "block",
+              }}
+            />
+          ) : (
+            <span style={{ color: "#6b7280", fontSize: "13px" }}>
+              Use CARD, USERS, CHART, CLOCK, SHIELD, GLOBE, or upload an image.
+            </span>
+          )}
+        </label>
+      );
+    }
+
     const commonProps = {
       style: isLongField(field) ? textareaStyle : inputStyle,
       value,
@@ -692,8 +775,8 @@ const Landing = () => {
               onClick={handleSave}
               disabled={saving}
               style={{
-                background: saving ? "#9ca3af" : "#2563eb",
-                color: "#ffffff",
+                background: saving ? "rgb(22,163,74)" : "rgb(22,163,74)",
+                color: "rgb(255,255,255)",
                 border: "none",
                 padding: "14px 28px",
                 borderRadius: "10px",
@@ -715,8 +798,8 @@ const Landing = () => {
                 style={{
                   padding: "12px 20px",
                   borderRadius: "10px",
-                  border: activeSection === key ? "1px solid #2563eb" : "1px solid #d1d5db",
-                  background: activeSection === key ? "#2563eb" : "#ffffff",
+                  border: activeSection === key ? "1px solid rgb(22,163,74)" : "1px solid #d1d5db",
+                  background: activeSection === key ? "rgb(22,163,74)" : "#ffffff",
                   color: activeSection === key ? "#ffffff" : "#374151",
                   fontWeight: "600",
                   fontSize: "14px",

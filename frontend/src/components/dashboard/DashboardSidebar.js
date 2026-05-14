@@ -55,7 +55,7 @@ const menuGroups = [
     children: [
       { titleEn: "Create Customer", titleBn: "কাস্টমার তৈরি", url: "/dashboard/customers", icon: UserPlus },
       { titleEn: "Settings", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Settings },
-      { titleEn: "Landing Page", titleBn: "ল্যান্ডিং পেজ", url: "/dashboard/landing", icon: Globe },
+      { titleEn: "Landing Page CMS", titleBn: "ল্যান্ডিং পেজ", url: "/dashboard/landing", icon: Globe },
     ],
   },
   {
@@ -155,7 +155,7 @@ const toggleMenu = (title) => {
         <div className="flex items-center justify-between p-4 border-b border-green-200">
           <div className="flex items-center gap-2 text-lg font-bold text-green-900">
             <Zap className="w-5 h-5 text-blue-900" />
-            {!collapsed && <span>BulkPay</span>}
+            {!collapsed && <span>SENDORA</span>}
           </div>
           <button onClick={() => setCollapsed(!collapsed)}>
             <Menu size={18} className="text-green-800" />
@@ -190,7 +190,7 @@ const toggleMenu = (title) => {
 >
   {/* LEFT SIDE */}
   <div className="flex items-center gap-3">
-    <div className="w-10 h-10 flex items-center justify-center rounded-full bg-green-300 text-green-900">
+    <div className="w-10 h-10 flex items-center justify-center rounded-full  text-green-900">
       <group.icon size={18} />
     </div>
 
@@ -234,7 +234,7 @@ const toggleMenu = (title) => {
                   className={`w-8 h-8 flex items-center justify-center rounded-full ${
                     location.pathname === item.url
                       ? "bg-green-600 text-white"
-                      : "bg-green-200 text-green-800"
+                      : " text-green-800"
                   }`}
                 >
                   <Icon size={16} />

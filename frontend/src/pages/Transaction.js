@@ -939,42 +939,43 @@ const liveTotal = amountValue + liveFee;
                     </span>
                   </td>
                   <td className="p-3 border">{tx.account_type}</td>
-                <td className="p-3 border text-nowrap ">
+                <td className="p-3 border  ">
   {formatDateTime(tx.tnx_time)}
 </td>
-                  <td className="p-3 border sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
-                    <div className="flex  items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openTransactionModal(tx)}
-                        className="rounded  px-1 py-1 text-black border border-black "
-                      >
-                        <Eye size={18} />
-                      </button>
-                      {isAdmin && tx.status === "pending" ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            tx.account_type === "bkash"
-                              ? startBkashPayment(tx)
-                              : openPaymentModal(tx)
-                          }
-                          disabled={startingGatewayPaymentId === tx.id}
-                          className="rounded bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {startingGatewayPaymentId === tx.id
-                            ? "Starting..."
-                            : "Send"}
-                        </button>
-                      ) : null}
-                    </div>
-                    <button
-  onClick={() => handleGenerateReport(tx)}
-  className="rounded px-2 py-1 text-white bg-blue-600 hover:bg-blue-700"
->
-  Report
-</button>
-                  </td>
+                <td className="p-3 border sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+  <div className="flex flex-row items-center justify-center gap-2">
+    <button
+      type="button"
+      onClick={() => openTransactionModal(tx)}
+      className="rounded px-1 py-1 text-black border border-black"
+    >
+      <Eye size={18} />
+    </button>
+
+    {isAdmin && tx.status === "pending" ? (
+      <button
+        type="button"
+        onClick={() =>
+          tx.account_type === "bkash"
+            ? startBkashPayment(tx)
+            : openPaymentModal(tx)
+        }
+        disabled={startingGatewayPaymentId === tx.id}
+        className="rounded bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {startingGatewayPaymentId === tx.id ? "Starting..." : "Send"}
+      </button>
+    ) : null}
+
+    <button
+      type="button"
+      onClick={() => handleGenerateReport(tx)}
+      className="rounded px-2 py-1 text-white bg-blue-600 hover:bg-blue-700"
+    >
+      Report
+    </button>
+  </div>
+</td>
                 </tr>
               ))
             )}
