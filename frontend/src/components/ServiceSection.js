@@ -82,7 +82,7 @@ const ServiceSection = () => {
   const services = getServices(data);
 
   return (
-    <section id="services" className="py-24 bg-gray-50">
+    <section id="services" className="py-24 bg-[aliceblue]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-3">
@@ -100,19 +100,19 @@ const ServiceSection = () => {
           {services.map((service) => (
             <div
               key={service.title}
-              className="bg-white rounded-2xl p-8 border border-gray-200 shadow hover:shadow-lg transition-shadow"
+              className="bg-white rounded-2xl p-8 border border-gray-300 shadow hover:shadow-lg transition-shadow"
             >
-              <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-5 text-xl">
-                {service.iconImage ? (
-                  <img
-                    src={service.iconImage}
-                    alt=""
-                    className="w-8 h-8 object-contain"
-                  />
-                ) : (
-                  service.icon
-                )}
-              </div>
+              <div className="w-16 h-16 rounded-xl flex items-center justify-center mb-5">
+  {service.iconImage ? (
+    <img
+      src={service.iconImage}
+      alt=""
+      className="w-12 h-12 object-contain"
+    />
+  ) : (
+    <span className="text-4xl">{service.icon}</span>
+  )}
+</div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {service.title}
               </h3>

@@ -17,7 +17,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
         
         {/* Logo */}
-        <a href="#home" className="flex items-center gap-2 text-xl font-bold text-blue-600">
+        <a href="#home" className="flex items-center gap-2 text-xl font-bold text-green-500">
            SENDORA
         </a>
 
@@ -27,7 +27,7 @@ const Navbar = () => {
             <li key={link.label}>
               <a
                 href={link.href}
-                className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                className="text-sm font-medium text-gray-600 hover:text-green-500 transition-colors"
               >
                 {link.label}
               </a>
@@ -39,13 +39,13 @@ const Navbar = () => {
         <div className="flex gap-4">
            <a
           href="#contact"
-          className="hidden md:inline-flex items-center px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="hidden md:inline-flex items-center px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           Get Started
         </a>
         <Link
           to="/login"
-          className="hidden md:inline-flex items-center px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="hidden md:inline-flex items-center px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           Login
         </Link>
@@ -70,7 +70,7 @@ const Navbar = () => {
               <li key={link.label}>
                 <a
                   href={link.href}
-                  className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                  className="text-sm font-medium text-gray-600 hover:text-green-500 transition-colors"
                   onClick={() => setOpen(false)}
                 >
                   {link.label}
@@ -80,7 +80,7 @@ const Navbar = () => {
             
            <li> <Link
           to="/login"
-          className="inline-flex items-center px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="inline-flex items-center px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           Login
         </Link></li>
