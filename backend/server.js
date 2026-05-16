@@ -25,6 +25,10 @@ const profileDir = path.join(__dirname, "uploads/profiles");
 if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
 const serviceIconDir = path.join(__dirname, "uploads/services");
 if (!fs.existsSync(serviceIconDir)) fs.mkdirSync(serviceIconDir, { recursive: true });
+const partnersIconDir = path.join(__dirname, "uploads/partners");
+if (!fs.existsSync(partnersIconDir)) fs.mkdirSync(partnersIconDir, { recursive: true });
+const heroLogoDir = path.join(__dirname, "uploads/hero");
+if (!fs.existsSync(heroLogoDir)) fs.mkdirSync(heroLogoDir, { recursive: true });
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, profileDir),
@@ -39,6 +43,20 @@ const serviceIconStorage = multer.diskStorage({
 });
 
 const uploadServiceIcon = multer({ storage: serviceIconStorage });
+
+const partnersIconStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, partnersIconDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+});
+
+const uploadPartnersIcon = multer({ storage: partnersIconStorage });
+
+const heroLogoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, heroLogoDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+});
+
+const uploadHeroLogo = multer({ storage: heroLogoStorage });
 
 // temporary OTP store (use DB in production)
 const otpStore = {};
@@ -147,7 +165,7 @@ const ensureHeroSectionTable = async () => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS hero_section (
       id INT PRIMARY KEY AUTO_INCREMENT,
-
+      logo VARCHAR(500),
       badge_text VARCHAR(255),
       title VARCHAR(255),
       highlight_text VARCHAR(255),
@@ -172,8 +190,10 @@ const ensureHeroSectionTable = async () => {
     )
   `);
 
+  await ensureColumn("hero_section", "logo", "VARCHAR(500)");
+
   await db.query(`
-    INSERT INTO hero_section (id, badge_text, title, highlight_text, description,
+    INSERT INTO hero_section (id, logo, badge_text, title, highlight_text, description,
       primary_button_text, primary_button_link,
       secondary_button_text, secondary_button_link,
       stat1_value, stat1_label,
@@ -182,6 +202,7 @@ const ensureHeroSectionTable = async () => {
       card_amount, card_recipients, card_status, card_verified)
 
     SELECT 1,
+      '',
       'Trusted by 10,000+ businesses',
       'Send Bulk Payments',
       'Instantly',
@@ -203,6 +224,7 @@ const ensureHeroSectionTable = async () => {
     )
   `);
 };
+
 const ensureServicesSectionTable = async () => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS services_section (
@@ -1283,6 +1305,8 @@ app.use(cookieParser());
 app.use("/uploads/kyc", express.static(uploadDir)); // serve uploaded images
 app.use("/uploads/profiles", express.static(profileDir));
 app.use("/uploads/services", express.static(serviceIconDir));
+app.use("/uploads/partners", express.static(partnersIconDir));
+app.use("/uploads/hero", express.static(heroLogoDir));
 
 // ================= AUTH MIDDLEWARE =================
 const authMiddleware = (req, res, next) => {
@@ -2731,12 +2755,21 @@ app.patch("/auth/settings/otp_type", async (req, res) => {
 });
 
 /////////////////////////////////////////
+app.post("/api/hero/logo-upload", uploadHeroLogo.single("logo"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+  const logoUrl = `/uploads/hero/${req.file.filename}`;
+  res.json({ url: logoUrl });
+});
+
 app.get("/api/hero", async (req, res) => {
   const [rows] = await db.query("SELECT * FROM hero_section WHERE id = 1");
   res.json(rows[0]);
 });
 app.put("/api/hero", async (req, res) => {
   const {
+    logo,
     badge_text,
     title,
     highlight_text,
@@ -2759,6 +2792,7 @@ app.put("/api/hero", async (req, res) => {
 
   await db.query(
     `UPDATE hero_section SET
+      logo=?,
       badge_text=?,
       title=?,
       highlight_text=?,
@@ -2779,6 +2813,7 @@ app.put("/api/hero", async (req, res) => {
       card_verified=?
     WHERE id=1`,
     [
+      logo,
       badge_text,
       title,
       highlight_text,
@@ -2834,6 +2869,17 @@ app.post("/api/services-section/icon-upload", uploadServiceIcon.single("icon"), 
   res.json({
     filename: req.file.filename,
     url: `/uploads/services/${req.file.filename}`,
+  });
+});
+
+app.post("/api/partners-section/logo-upload", uploadPartnersIcon.single("logo"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Logo image is required" });
+  }
+
+  res.json({
+    filename: req.file.filename,
+    url: `/uploads/partners/${req.file.filename}`,
   });
 });
 

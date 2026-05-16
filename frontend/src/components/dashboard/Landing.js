@@ -3,6 +3,7 @@ import axios from "axios";
 import { BASE_URL } from "../../constants";
 
 const heroDefaults = {
+  logo: "",
   badge_text: "",
   title: "",
   highlight_text: "",
@@ -123,6 +124,7 @@ const footerDefaults = {
   legal_link3_href: "",
   copyright_text: "",
 };
+
 const thStyle = {
   padding: "12px",
   textAlign: "left",
@@ -221,6 +223,7 @@ const MAX_PARTNERS = 6;
 
 const fieldGroups = {
   home: [
+    { title: "Branding", fields: ["logo"] },
     { title: "Hero Content", fields: ["badge_text", "title", "highlight_text", "description"] },
     { title: "Buttons", fields: ["primary_button_text", "primary_button_link", "secondary_button_text", "secondary_button_link"] },
     { title: "Stats", fields: ["stat1_value", "stat1_label", "stat2_value", "stat2_label", "stat3_value", "stat3_label"] },
@@ -269,15 +272,23 @@ const isLongField = (field) =>
 const isServiceIconField = (field) =>
   /^service\d+_icon$/.test(field);
 
+const isLogoField = (field) =>
+  field === "logo";
+
 const getImageSrc = (value) => {
   if (!value) return "";
-  if (/^(https?:)?\/\//.test(value) || value.startsWith("data:image")) {
+
+  // already full URL
+  if (value.startsWith("http://") || value.startsWith("https://")) {
     return value;
   }
+
+  // relative upload path
   if (value.startsWith("/uploads/")) {
     return `${BASE_URL}${value}`;
   }
-  return "";
+
+  return value;
 };
 
 const getVisiblePartnerCount = (partnersForm = {}) => {
@@ -317,7 +328,36 @@ const Landing = () => {
     boxSizing: "border-box",
     marginTop: "6px",
   };
+const handlePartnerLogoUpload = async (partnerNum, file) => {
+  if (!file) return;
 
+  const formData = new FormData();
+  formData.append("logo", file);
+
+  try {
+    const res = await axios.post(
+      `${BASE_URL}/api/partners-section/logo-upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    // Save uploaded image path (example: /uploads/partner-123.png)
+    const returnedUrl = res.data.url || "";
+    const finalUrl = returnedUrl.startsWith("/uploads/") ? `${BASE_URL}${returnedUrl}` : returnedUrl;
+    handleChange(
+      "partners",
+      `partner${partnerNum}_logo`,
+      finalUrl
+    );
+  } catch (err) {
+    console.error(err);
+    alert("Partner logo upload failed");
+  }
+};
   const textareaStyle = {
     ...inputStyle,
     minHeight: "100px",
@@ -390,6 +430,48 @@ const Landing = () => {
       setSaving(false);
     }
   };
+
+ const handleLogoUpload = async (field, file) => {
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("logo", file);
+
+  try {
+    setUploadingServiceIcons((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+
+    const res = await axios.post(
+      `${BASE_URL}/api/hero/logo-upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    // Example returned URL: /uploads/logo-123.png
+    const returnedUrl = res.data.url || "";
+
+    // Convert relative path to full URL so preview works immediately
+    const finalUrl = returnedUrl.startsWith("/uploads/")
+      ? `${BASE_URL}${returnedUrl}`
+      : returnedUrl;
+
+    handleChange("home", field, finalUrl);
+  } catch (err) {
+    console.error(err);
+    alert("Logo upload failed");
+  } finally {
+    setUploadingServiceIcons((prev) => ({
+      ...prev,
+      [field]: false,
+    }));
+  }
+};
 
   const handleServiceIconUpload = async (field, file) => {
     if (!file) return;
@@ -469,6 +551,49 @@ const Landing = () => {
   const renderField = (field) => {
     const value = forms[activeSection]?.[field] || "";
     const imageSrc = getImageSrc(value);
+
+    if (activeSection === "home" && isLogoField(field)) {
+      return (
+        <label key={field} style={labelStyle}>
+          {prettify(field)}
+          <input
+            style={inputStyle}
+            value={value}
+            placeholder="Logo URL or uploaded path"
+            onChange={(e) => handleChange(activeSection, field, e.target.value)}
+          />
+          <input
+            type="file"
+            accept="image/*"
+            style={{ ...inputStyle, padding: "10px 12px" }}
+            disabled={uploadingServiceIcons[field]}
+            onChange={(e) => handleLogoUpload(field, e.target.files?.[0])}
+          />
+          {uploadingServiceIcons[field] ? (
+            <span style={{ color: "#6b7280", fontSize: "13px" }}>Uploading...</span>
+          ) : imageSrc ? (
+            <img
+              src={imageSrc}
+              alt={prettify(field)}
+              style={{
+                width: "120px",
+                height: "auto",
+                objectFit: "contain",
+                border: "1px solid #e5e7eb",
+                borderRadius: "10px",
+                background: "#ffffff",
+                marginTop: "8px",
+                display: "block",
+              }}
+            />
+          ) : (
+            <span style={{ color: "#6b7280", fontSize: "13px" }}>
+              Upload or paste logo URL
+            </span>
+          )}
+        </label>
+      );
+    }
 
     if (activeSection === "services" && isServiceIconField(field)) {
       return (
@@ -664,7 +789,7 @@ const Landing = () => {
             <tr style={{ background: "#ebf1f2", color: "#000000" }}>
               <th style={thStyle}>#</th>
               <th style={thStyle}>Name</th>
-              <th style={thStyle}>Logo URL</th>
+              <th style={thStyle}>Logo Upload</th>
               <th style={thStyle}>Preview</th>
               <th style={thStyle}>Action</th>
             </tr>
@@ -688,15 +813,33 @@ const Landing = () => {
                   </td>
 
                   <td style={tdStyle}>
-                    <input
-                      style={{ ...inputStyle, marginTop: 0 }}
-                      disabled={editingPartner !== num}
-                      value={forms.partners[`partner${num}_logo`] || ""}
-                      onChange={(e) =>
-                        handleChange("partners", `partner${num}_logo`, e.target.value)
-                      }
-                    />
-                  </td>
+  <input
+    type="file"
+    accept="image/*"
+    disabled={editingPartner !== num}
+    onChange={(e) =>
+      handlePartnerLogoUpload(num, e.target.files?.[0])
+    }
+    style={{
+      ...inputStyle,
+      marginTop: 0,
+      padding: "8px",
+    }}
+  />
+
+  {forms.partners[`partner${num}_logo`] && (
+    <div
+      style={{
+        marginTop: "8px",
+        fontSize: "12px",
+        color: "#6b7280",
+        wordBreak: "break-all",
+      }}
+    >
+      {forms.partners[`partner${num}_logo`]}
+    </div>
+  )}
+</td>
 
                   <td style={tdStyle}>
                     {forms.partners[`partner${num}_logo`] ? (

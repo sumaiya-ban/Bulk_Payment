@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { ShieldCheck } from "lucide-react";
 import { BASE_URL } from "../constants";
 
 const defaultData = {
@@ -45,10 +46,10 @@ const getLinks = (data, prefix, count) =>
 const FooterLinks = ({ title, links }) => (
   <div>
     <h4 className="font-semibold text-sm mb-4 text-white">{title}</h4>
-    <ul className="space-y-2 text-sm text-gray-400">
+    <ul className="space-y-2 text-sm text-white/55">
       {links.map((link) => (
         <li key={`${title}-${link.label}`}>
-          <a href={link.href} className="hover:text-white transition">
+          <a href={link.href} className="hover:text-green-300 transition">
             {link.label}
           </a>
         </li>
@@ -75,28 +76,40 @@ const Footer = () => {
   }, []);
 
   return (
-    <footer className="bg-gray-900 text-gray-300 py-16">
+    <footer className="bg-[#04100c] text-white/70 py-16">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>
             <a
               href="#home"
-              className="flex items-center gap-2 text-lg font-bold text-white mb-4"
+              className="flex items-center gap-3 text-lg font-bold text-white mb-4"
             >
+              <span className="w-10 h-10 rounded-2xl bg-green-500 flex items-center justify-center text-white shadow-lg">
+                <ShieldCheck className="w-5 h-5" />
+              </span>
               {data.brand_text}
             </a>
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <p className="text-sm text-white/55 leading-relaxed max-w-sm">
               {data.description}
             </p>
           </div>
 
-          <FooterLinks title={data.product_title} links={getLinks(data, "product", 4)} />
-          <FooterLinks title={data.company_title} links={getLinks(data, "company", 4)} />
-          <FooterLinks title={data.legal_title} links={getLinks(data, "legal", 3)} />
+          <FooterLinks
+            title={data.product_title}
+            links={getLinks(data, "product", 4)}
+          />
+          <FooterLinks
+            title={data.company_title}
+            links={getLinks(data, "company", 4)}
+          />
+          <FooterLinks
+            title={data.legal_title}
+            links={getLinks(data, "legal", 3)}
+          />
         </div>
 
-        <div className="border-t border-gray-700 pt-8 text-center">
-          <p className="text-sm text-gray-500">{data.copyright_text}</p>
+        <div className="border-t border-white/10 pt-8 text-center">
+          <p className="text-sm text-white/45">{data.copyright_text}</p>
         </div>
       </div>
     </footer>

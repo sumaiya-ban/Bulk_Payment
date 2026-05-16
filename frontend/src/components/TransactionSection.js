@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { CheckCircle2, Radio, ShieldCheck, WalletCards } from "lucide-react";
 import { BASE_URL } from "../constants";
 
 const defaultData = {
@@ -67,15 +68,16 @@ const TransactionSection = () => {
   const transactions = getTransactions(data);
 
   return (
-    <section id="transaction" className="py-20 bg-gray-100">
+    <section id="transaction" className="py-24  bg-[#eef8f2]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           <div>
-            <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wider mb-3">
+            <p className="inline-flex items-center gap-2 rounded-full border border-green-400/20 bg-green-400/10 px-4 py-2 text-sm font-semibold text-green-500 mb-5">
+              <ShieldCheck className="w-4 h-4" />
               {data.badge_text}
             </p>
 
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-950 mb-6">
               {data.title}
             </h2>
 
@@ -83,24 +85,31 @@ const TransactionSection = () => {
               {data.description}
             </p>
 
-            <ul className="space-y-4">
+            <ul className="grid sm:grid-cols-2 gap-4">
               {features.map((feature) => (
-                <li key={feature} className="flex items-center gap-3">
-                  <span className="w-5 h-5 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold">
-                    ✓
+                <li
+                  key={feature}
+                  className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm"
+                >
+                  <span className="mt-0.5 w-5 h-5 flex shrink-0 items-center justify-center rounded-full bg-green-500 text-white">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                   </span>
-                  <span className="text-sm text-gray-800">{feature}</span>
+                  <span className="text-sm text-gray-600">{feature}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-gray-900">
-                {data.card_title}
-              </h3>
-              <span className="text-xs text-indigo-600 font-medium bg-indigo-100 px-3 py-1 rounded-full">
+          <div className="rounded-3xl border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center justify-between mb-6 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-green-500/15 border border-green-400/25 flex items-center justify-center text-green-500">
+                  <WalletCards className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-gray-950">{data.card_title}</h3>
+              </div>
+              <span className="inline-flex items-center gap-1.5 text-xs text-green-500 font-medium bg-green-400/10 border border-green-400/20 px-3 py-1 rounded-full">
+                <Radio className="w-3 h-3" />
                 {data.card_badge_text}
               </span>
             </div>
@@ -109,26 +118,24 @@ const TransactionSection = () => {
               {transactions.map((tx) => (
                 <div
                   key={tx.name}
-                  className="flex items-center justify-between py-3 border-b border-gray-200 last:border-0"
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4"
                 >
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {tx.name}
-                    </p>
+                    <p className="text-sm font-medium text-gray-950">{tx.name}</p>
                     <p className="text-xs text-gray-500">{tx.count}</p>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-gray-950">
                       {tx.amount}
                     </p>
                     <p
                       className={`text-xs font-medium ${
                         tx.status === "Completed"
-                          ? "text-green-600"
+                          ? "text-green-500"
                           : tx.status === "Processing"
-                          ? "text-yellow-600"
-                          : "text-red-500"
+                          ? "text-yellow-500"
+                          : "text-emerald-500"
                       }`}
                     >
                       {tx.status}

@@ -5,12 +5,11 @@ import { BASE_URL } from "../constants";
 const defaultData = {
   title: "Trusted by Industry Leaders",
   partner1_name: "Bkash",
-  partner1_logo: "https://download.logo.wine/logo/BKash/BKash-Logo.wine.png",
+  partner1_logo: "",
   partner2_name: "Nagad",
-  partner2_logo: "https://download.logo.wine/logo/Nagad/Nagad-Logo.wine.png",
+  partner2_logo: "",
   partner3_name: "Rocket",
-  partner3_logo:
-    "https://download.logo.wine/logo/Dutch-Bangla_Bank_Rocket/Dutch-Bangla_Bank_Rocket-Logo.wine.png",
+  partner3_logo: "/dutch-bangla-rocket-logo.png",
   partner4_name: "",
   partner4_logo: "",
   partner5_name: "",
@@ -47,28 +46,31 @@ const PartnersSection = () => {
   const partners = getPartners(data);
 
   return (
-    <section id="partners" className="py-20 bg-gray-50">
+    <section id="partners" className="py-20 bg-[#eef8f2]">
       <div className="max-w-7xl mx-auto px-6 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12">
+        <p className="inline-flex items-center rounded-full border border-green-200 bg-white px-4 py-2 text-sm font-semibold text-green-700 shadow-sm mb-5">
+          Partners
+        </p>
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-950 mb-12">
           {data.title}
         </h2>
 
         <div className="grid gap-8 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
           {partners.map((partner) => (
-            <div
-              key={partner.name}
-              className="group bg-white border border-gray-300 rounded-3xl p-8 flex flex-col items-center justify-center shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-300"
-            >
-              <img
-                src={partner.logo}
-                alt={partner.name}
-                className="h-14 object-contain mb-4 grayscale group-hover:grayscale-0 transition duration-300"
-              />
+          <div
+  key={partner.name}
+  className="group bg-gradient-to-br from-green-50 via-green-100 to-green-50 border-2 border-green-500 rounded-2xl p-8 flex flex-col items-center justify-center shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+>
+  <img
+    src={partner.logo}
+    alt={partner.name}
+    className="h-14 max-w-36 object-contain mb-4 transition duration-300"
+  />
 
-              <span className="text-sm font-semibold text-gray-600 group-hover:text-indigo-600">
-                {partner.name}
-              </span>
-            </div>
+  <span className="text-lg font-semibold text-gray-600 group-hover:text-green-700">
+    {partner.name}
+  </span>
+</div>
           ))}
         </div>
       </div>

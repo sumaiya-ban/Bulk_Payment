@@ -54,21 +54,21 @@ const LoginPage = () => {
 
 <ul className="space-y-4 text-white text-sm">
   <li className="flex items-center gap-3">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-purple-600 bg-purple-600 shadow-md">
+    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-primary bg-primary shadow-md">
       <Check size={14} />
     </span>
     Better Exchange Rates
   </li>
 
   <li className="flex items-center gap-3">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-purple-600 bg-purple-600 shadow-md">
+    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-primary bg-primary shadow-md">
       <Check size={14} />
     </span>
     Low Transaction Fee
   </li>
 
   <li className="flex items-center gap-3">
-   <span className="flex items-center justify-center w-6 h-6 rounded-full border border-purple-600 bg-purple-600 shadow-md">
+   <span className="flex items-center justify-center w-6 h-6 rounded-full border border-primary bg-primary shadow-md">
       <Check size={14} />
     </span>
     No Hidden Fees
@@ -78,15 +78,15 @@ const LoginPage = () => {
       </div>
 
       {/* RIGHT SIDE */}
-      <div className="w-full md:w-1/2 flex items-center justify-center bg-gradient-to-br from-purple-200 via-pink-100 to-indigo-200">
+      <div className="w-full md:w-1/2 flex items-center justify-center bg-gradient-to-br from-primary-light via-primary/70 to-primary-light">
         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
 
-          <h2 className="text-2xl font-bold mb-6 text-gray-900 text-center">
+          <h2 className="text-2xl font-bold mb-6 text-primary-dark text-center">
             Login
           </h2>
 
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-          {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
+          {success && <p className="text-primary text-sm mb-4">{success}</p>}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
 
@@ -101,7 +101,7 @@ const LoginPage = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
               />
             </div>
 
@@ -116,7 +116,7 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
               />
             </div>
 
@@ -124,7 +124,7 @@ const LoginPage = () => {
             <div className="text-right">
               <Link
                 to="/forgot-password"
-                className="text-purple-600 text-sm hover:underline"
+                className="text-primary text-sm hover:underline"
               >
                 Forget Password?
               </Link>
@@ -133,7 +133,7 @@ const LoginPage = () => {
             {/* BUTTON */}
             <button
               type="submit"
-              className="w-full py-2 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:opacity-90 transition"
+              className="w-full py-2 px-4 bg-gradient-to-r from-primary to-primary-dark text-white rounded-lg font-semibold hover:opacity-90 transition"
             >
               Login
             </button>
@@ -141,7 +141,7 @@ const LoginPage = () => {
             {/* REGISTER */}
             <div className="text-center text-sm">
               Don't you have any account?{" "}
-              <Link to="/register" className="font-semibold text-purple-600">
+              <Link to="/register" className="font-semibold text-primary">
                 Register
               </Link>
             </div>

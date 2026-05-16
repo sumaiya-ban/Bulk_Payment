@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  BarChart3,
+  Clock,
+  CreditCard,
+  Globe,
+  Shield,
+  Users,
+} from "lucide-react";
 import { BASE_URL } from "../constants";
 
 const defaultData = {
@@ -33,12 +41,12 @@ const defaultData = {
 };
 
 const iconMap = {
-  CARD: "💳",
-  USERS: "👥",
-  CHART: "📊",
-  CLOCK: "⏰",
-  SHIELD: "🛡️",
-  GLOBE: "🌐",
+  CARD: CreditCard,
+  USERS: Users,
+  CHART: BarChart3,
+  CLOCK: Clock,
+  SHIELD: Shield,
+  GLOBE: Globe,
 };
 
 const getImageSrc = (value) => {
@@ -55,7 +63,7 @@ const getImageSrc = (value) => {
 const getServices = (data) =>
   [1, 2, 3, 4, 5, 6]
     .map((num) => ({
-      icon: iconMap[data[`service${num}_icon`]] || data[`service${num}_icon`],
+      Icon: iconMap[data[`service${num}_icon`]] || CreditCard,
       iconImage: getImageSrc(data[`service${num}_icon`]),
       title: data[`service${num}_title`],
       description: data[`service${num}_description`],
@@ -82,16 +90,32 @@ const ServiceSection = () => {
   const services = getServices(data);
 
   return (
-    <section id="services" className="py-24 bg-[aliceblue]">
-      <div className="max-w-7xl mx-auto px-6">
+    <section
+      id="services"
+      className="relative overflow-hidden py-24 bg-[#06110d]"
+    >
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(6,17,13,0.88), rgba(6,17,13,0.94)),
+            url('/sendora_emotional.png')
+          `,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.18),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.14),transparent_32%)]" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
-          <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-3">
+          <p className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-green-300 backdrop-blur-sm mb-5">
             {data.badge_text}
           </p>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             {data.title}
           </h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="text-white/70 max-w-2xl mx-auto leading-relaxed">
             {data.description}
           </p>
         </div>
@@ -100,23 +124,23 @@ const ServiceSection = () => {
           {services.map((service) => (
             <div
               key={service.title}
-              className="bg-white rounded-2xl p-8 border border-gray-300 shadow hover:shadow-lg transition-shadow"
+              className="group rounded-2xl border border-white/15 bg-white/10 p-8 shadow-2xl backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/[0.14]"
             >
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center mb-5">
-  {service.iconImage ? (
-    <img
-      src={service.iconImage}
-      alt=""
-      className="w-12 h-12 object-contain"
-    />
-  ) : (
-    <span className="text-4xl">{service.icon}</span>
-  )}
-</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <div className="w-14 h-14 rounded-2xl bg-green-500/15 border border-green-400/25 flex items-center justify-center mb-5 text-green-300 group-hover:bg-green-500 group-hover:text-white transition">
+                {service.iconImage ? (
+                  <img
+                    src={service.iconImage}
+                    alt=""
+                    className="w-10 h-10 object-contain"
+                  />
+                ) : (
+                  <service.Icon className="w-7 h-7" />
+                )}
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">
                 {service.title}
               </h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-sm text-white/65 leading-relaxed">
                 {service.description}
               </p>
             </div>

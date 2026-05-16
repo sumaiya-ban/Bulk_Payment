@@ -1,3 +1,33 @@
+:root {
+  --primary: #16a34a;
+  --primary-dark: #15803d;
+  --primary-light: #dcfce7;
+  --primary-contrast: #ffffff;
+  --primary-muted: #ecfdf5;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .text-primary {
+    color: var(--primary) !important;
+  }
+
+  .bg-primary {
+    background-color: var(--primary) !important;
+  }
+
+  .bg-primary-dark {
+    background-color: var(--primary-dark) !important;
+  }
+
+  .bg-primary-light {
+    background-color: var(--primary-light) !important;
+  }
+
+  .border-primary {
+    border-color: var(--primary) !important;
+  }
+}

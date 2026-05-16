@@ -5,11 +5,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // 💚 Primary Brand Green
+        // 💚 Primary Brand Color (runtime via CSS variables)
         primary: {
-          DEFAULT: "#16A34A",
-          dark: "#15803D",
-          light: "#DCFCE7",
+          DEFAULT: "var(--primary)",
+          dark: "var(--primary-dark)",
+          light: "var(--primary-light)",
         },
 
         // 🌿 Backgrounds
