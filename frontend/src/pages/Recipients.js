@@ -15,7 +15,7 @@ const rowsPerPage = 5;
 
 const fetchRecipients = async () => {
   try {
-    const res = await axios.get("http://localhost:8081/auth/receivers");
+    const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/receivers`);
     setRecipients(res.data);
   } catch (error) {
     console.error("Error fetching recipients", error);
@@ -43,7 +43,7 @@ const paginatedRecipients = recipients.slice(
 
   if (result.isConfirmed) {
     try {
-      await axios.delete(`http://localhost:8081/auth/receiver/${id}`);
+      await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/auth/receiver/${id}`);
 
       Swal.fire("Deleted!", "Recipient has been deleted.", "success");
 

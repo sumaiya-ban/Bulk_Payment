@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8081";
+const BASE_URL = process.env.REACT_APP_BACKEND_URL ;
 
 const navLinks = [
   { label: "Home", href: "#home" },

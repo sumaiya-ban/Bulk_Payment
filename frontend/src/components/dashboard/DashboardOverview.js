@@ -48,11 +48,11 @@ const DashboardOverview = () => {
       try {
         if (isAdmin) {
           const [balanceRes, userRes, monthlyRes, yearlyRes, dailyRes] = await Promise.all([
-            axios.get("http://localhost:8081/api/transactions/total"),
-            axios.get("http://localhost:8081/api/users/active-count"),
-            axios.get("http://localhost:8081/api/transactions/monthly"),
-            axios.get("http://localhost:8081/api/transactions/yearly"),
-            axios.get("http://localhost:8081/api/transactions/daily"),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/transactions/total`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/users/active-count`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/transactions/monthly`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/transactions/yearly`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/transactions/daily`),
           ]);
 
           setTotalBalance(balanceRes.data.totalBalance || 0);
@@ -62,10 +62,10 @@ const DashboardOverview = () => {
           setDailyData(dailyRes.data || []);
         } else if (isCustomer) {
           const [balanceRes, monthlyRes, yearlyRes, recentRes] = await Promise.all([
-            axios.get(`http://localhost:8081/api/transactions/total?customer_id=${user.id}`),
-            axios.get(`http://localhost:8081/api/transactions/monthly?customer_id=${user.id}`),
-            axios.get(`http://localhost:8081/api/transactions/yearly?customer_id=${user.id}`),
-            axios.get(`http://localhost:8081/auth/transactions/${user.id}?status=send`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/transactions/total?customer_id=${user.id}`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/transactions/monthly?customer_id=${user.id}`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/transactions/yearly?customer_id=${user.id}`),
+            axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/transactions/${user.id}?status=send`),
           ]);
 
           setTotalBalance(balanceRes.data.totalBalance || 0);

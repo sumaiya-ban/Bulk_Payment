@@ -39,7 +39,7 @@ useEffect(() => {
 
       // Fetch existing KYC for this user
       const res = await axios.get(
-        `http://localhost:8081/auth/kyc/${user.id}`,
+        `${process.env.REACT_APP_BACKEND_URL}/auth/kyc/${user.id}`,
         { withCredentials: true }
       );
 
@@ -98,8 +98,8 @@ const handleSubmit = async (e) => {
     }
 
     const url = isEditing
-      ? "http://localhost:8081/auth/kyc/update"
-      : "http://localhost:8081/auth/kyc";
+      ? `${process.env.REACT_APP_BACKEND_URL}/auth/kyc/update`
+      : `${process.env.REACT_APP_BACKEND_URL}/auth/kyc`;
 
     const method = isEditing ? axios.put : axios.post;
 

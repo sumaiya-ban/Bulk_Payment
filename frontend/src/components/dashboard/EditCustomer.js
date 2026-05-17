@@ -19,7 +19,7 @@ const EditCustomer = () => {
 
   const fetchCustomer = async () => {
     try {
-      const res = await axios.get(`http://localhost:8081/auth/customers`);
+      const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/customers`);
 
       const customer = res.data.find((c) => c.id == id);
 
@@ -37,7 +37,7 @@ const EditCustomer = () => {
     e.preventDefault();
 
     try {
-      await axios.patch(`http://localhost:8081/auth/customer/${id}`, form);
+      await axios.patch(`${process.env.REACT_APP_BACKEND_URL}/auth/customer/${id}`, form);
 
       Swal.fire({
         icon: "success",

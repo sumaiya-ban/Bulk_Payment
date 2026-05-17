@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 
-const API_BASE = "http://localhost:8081/api/support-chat";
+const API_BASE = `${process.env.REACT_APP_BACKEND_URL}/api/support-chat`;
 const GUEST_STORAGE_KEY = "support-chat-guest";
 
 const SupportChatWidget = () => {

@@ -15,7 +15,7 @@ const [currentPage, setCurrentPage] = useState(1);
 const rowsPerPage = 5;
 const fetchCustomers = async () => {
   try {
-    const res = await axios.get("http://localhost:8081/auth/customers");
+    const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/customers`);
     setCustomers(res.data);
   } catch (error) {
     console.error("Error fetching customers", error);
@@ -43,7 +43,7 @@ const paginatedCustomers = customers.slice(
 
   if (result.isConfirmed) {
     try {
-      await axios.delete(`http://localhost:8081/auth/customer/${id}`);
+      await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/auth/customer/${id}`);
 
       Swal.fire("Deleted!", "Customer has been deleted.", "success");
 

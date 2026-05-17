@@ -20,7 +20,7 @@ const EditRecipient = () => {
 
   const fetchReceiver = async () => {
     try {
-      const res = await axios.get("http://localhost:8081/auth/receivers");
+      const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/receivers`);
 
       const receiver = res.data.find((r) => r.id == id);
 
@@ -39,7 +39,7 @@ const EditRecipient = () => {
     e.preventDefault();
 
     try {
-      await axios.patch(`http://localhost:8081/auth/receiver/${id}`, form);
+      await axios.patch(`${process.env.REACT_APP_BACKEND_URL}/auth/receiver/${id}`, form);
 
       Swal.fire({
         icon: "success",

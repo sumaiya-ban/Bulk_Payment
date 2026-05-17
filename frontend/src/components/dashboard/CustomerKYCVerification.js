@@ -40,7 +40,7 @@ const CustomerKYCVerification = () => {
         }
 
         const res = await axios.get(
-          `http://localhost:8081/auth/kyc/${user.id}`,
+          `${process.env.REACT_APP_BACKEND_URL}/auth/kyc/${user.id}`,
           { withCredentials: true }
         );
 
@@ -107,7 +107,7 @@ const CustomerKYCVerification = () => {
 
   const refreshKyc = async () => {
     const refreshed = await axios.get(
-      `http://localhost:8081/auth/kyc/${user.id}`,
+      `${process.env.REACT_APP_BACKEND_URL}/auth/kyc/${user.id}`,
       { withCredentials: true }
     );
 

@@ -182,7 +182,7 @@ useEffect(() => {
 
   const fetchTransactions = async () => {
     try {
-      const res = await axios.get("http://localhost:8081/auth/transactions");
+      const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/transactions`);
       setTransactions(res.data);
     } catch (error) {
       console.error(error);
@@ -193,7 +193,7 @@ useEffect(() => {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get("http://localhost:8081/auth/customers");
+      const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/customers`);
       setCustomers(res.data);
     } catch (error) {
       console.error(error);
@@ -202,7 +202,7 @@ useEffect(() => {
 
   const fetchReceivers = async () => {
     try {
-      const res = await axios.get("http://localhost:8081/auth/receivers");
+      const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/receivers`);
       setReceivers(res.data);
     } catch (error) {
       console.error(error);
@@ -211,7 +211,7 @@ useEffect(() => {
 
   const fetchSettingsForLog = async () => {
     try {
-      const res = await axios.get("http://localhost:8081/auth/settings", {
+      const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/settings`, {
         withCredentials: true,
       });
       setSettings(Array.isArray(res.data) ? res.data : []);
@@ -224,7 +224,7 @@ useEffect(() => {
   const handleStatusUpdate = async (id, status, notes = "") => {
     try {
       setUpdatingTransaction(true);
-      await axios.patch(`http://localhost:8081/auth/transaction/${id}`, {
+      await axios.patch(`${process.env.REACT_APP_BACKEND_URL}/auth/transaction/${id}`, {
         status,
         notes,
       });
@@ -322,7 +322,7 @@ useEffect(() => {
     try {
       setStartingGatewayPaymentId(transaction.id);
       const response = await axios.post(
-        `http://localhost:8081/auth/bkash/payment/${transaction.id}/start`
+        `${process.env.REACT_APP_BACKEND_URL}/auth/bkash/payment/${transaction.id}/start`
       );
 
       if (!response.data?.bkashURL) {
@@ -342,7 +342,7 @@ useEffect(() => {
     try {
       setStartingGatewayPaymentId(transaction.id);
       const response = await axios.post(
-        `http://localhost:8081/auth/sslcommerz/payment/${transaction.id}/start`
+        `${process.env.REACT_APP_BACKEND_URL}/auth/sslcommerz/payment/${transaction.id}/start`
       );
 
       const paymentUrl =
@@ -420,7 +420,7 @@ useEffect(() => {
   };
 const handleGenerateReport = async (tx) => {
   try {
-    await axios.post("http://localhost:8081/auth/report", {
+    await axios.post(`${process.env.REACT_APP_BACKEND_URL}/auth/report`, {
       transaction_id: tx.id,
     });
 
@@ -436,7 +436,7 @@ const handleGenerateReport = async (tx) => {
     }
 
     try {
-      const res = await axios.get(`http://localhost:8081/auth/kyc/${users_id}`);
+      const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/kyc/${users_id}`);
       setKycRecord(res.data || null);
     } catch (error) {
       console.error("Failed to fetch KYC record:", error);
@@ -544,7 +544,7 @@ const handleGenerateReport = async (tx) => {
 const fee = calculateFee(amount);
 const totalAmount = amount + fee;
 
-await axios.post("http://localhost:8081/auth/transaction", {
+await axios.post(`${process.env.REACT_APP_BACKEND_URL}/auth/transaction`, {
   customer_id: dataToSend.customer_id,
   account_type: dataToSend.account_type,
   amount: amount,

@@ -42,7 +42,7 @@ if (otpType === "sms" && !phone) {
 }
   try {
     // 🔥 Call backend OTP API
-  await axios.post("http://localhost:8081/auth/send-otp", {
+  await axios.post(`${process.env.REACT_APP_BACKEND_URL}/auth/send-otp`, {
   ...(otpType === "sms" ? { phone } : { email }),
   purpose: "register",
 });
@@ -57,7 +57,7 @@ useEffect(() => {
   const fetchOtpType = async () => {
     try {
       const res = await axios.get(
-        "http://localhost:8081/auth/settings",
+        `${process.env.REACT_APP_BACKEND_URL}/auth/settings`,
         { withCredentials: true }
       );
 
@@ -85,7 +85,7 @@ const verifyOtpAndRegister = async () => {
 
   try {
     // 🔥 VERIFY OTP FROM BACKEND
-   await axios.post("http://localhost:8081/auth/verify-otp", {
+   await axios.post(`${process.env.REACT_APP_BACKEND_URL}/auth/verify-otp`, {
   email,
   phone,
   otp: enteredOtp,
@@ -93,7 +93,7 @@ const verifyOtpAndRegister = async () => {
 });
     // 🔥 THEN REGISTER USER
     const res = await axios.post(
-      "http://localhost:8081/auth/register",
+      `${process.env.REACT_APP_BACKEND_URL}/auth/register`,
       formData
     );
 

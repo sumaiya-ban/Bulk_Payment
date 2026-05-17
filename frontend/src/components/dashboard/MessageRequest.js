@@ -11,7 +11,7 @@ const MessageRequest = () => {
   }, []);
 
   const fetchContacts = async () => {
-    const res = await fetch("http://localhost:8081/api/contacts");
+    const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/contacts`);
     const data = await res.json();
     setContacts(data);
   };
@@ -22,7 +22,7 @@ const MessageRequest = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8081/api/contact/reply", {
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/contact/reply`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

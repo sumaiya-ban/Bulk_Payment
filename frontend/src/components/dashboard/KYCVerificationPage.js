@@ -34,7 +34,7 @@ const paginatedRows = adminRows.slice(
           return;
         }
 
-        const res = await axios.get("http://localhost:8081/auth/kyc", {
+        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/auth/kyc`, {
           withCredentials: true,
         });
         setAdminRows(Array.isArray(res.data) ? res.data : []);
@@ -67,7 +67,7 @@ const paginatedRows = adminRows.slice(
       setActionLoading(true);
 
       const res = await axios.patch(
-        `http://localhost:8081/auth/kyc/${selectedRow.id}`,
+        `${process.env.REACT_APP_BACKEND_URL}/auth/kyc/${selectedRow.id}`,
         { status, notes },
         { withCredentials: true }
       );
@@ -297,7 +297,7 @@ const rejectedKyc = adminRows.filter(r => r.status === "rejected").length;
                     <p className="mb-2 text-sm font-medium text-gray-700">Front Image</p>
                     {selectedRow.front_image ? (
                       <img
-                        src={`http://localhost:8081/uploads/kyc/${selectedRow.front_image}`}
+                        src={`${process.env.REACT_APP_BACKEND_URL}/uploads/kyc/${selectedRow.front_image}`}
                         alt="Front document"
                         className="h-48 w-full rounded-lg border object-cover"
                       />
@@ -309,7 +309,7 @@ const rejectedKyc = adminRows.filter(r => r.status === "rejected").length;
                     <p className="mb-2 text-sm font-medium text-gray-700">Back Image</p>
                     {selectedRow.back_image ? (
                       <img
-                        src={`http://localhost:8081/uploads/kyc/${selectedRow.back_image}`}
+                        src={`${process.env.REACT_APP_BACKEND_URL}/uploads/kyc/${selectedRow.back_image}`}
                         alt="Back document"
                         className="h-48 w-full rounded-lg border object-cover"
                       />

@@ -22,7 +22,7 @@ const CreateRecipents = () => {
 
   try {
     const res = await axios.post(
-      "http://localhost:8081/auth/receiver",
+      `${process.env.REACT_APP_BACKEND_URL}/auth/receiver`,
       {
         name: form.name,
         number: form.number,

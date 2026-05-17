@@ -63,7 +63,7 @@ const otpStore = {};
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const app = express();
 const PORT = process.env.PORT || 8081;
-const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/+$/, "");
+const FRONTEND_URL = (process.env.FRONTEND_URL).replace(/\/+$/, "");
 const BKASH_BASE_URL = (process.env.BKASH_BASE_URL || "https://tokenized.sandbox.bka.sh/v1.2.0-beta").replace(/\/+$/, "");
 const BKASH_CALLBACK_URL = process.env.BKASH_CALLBACK_URL || `http://localhost:${PORT}/auth/bkash/callback`;
 

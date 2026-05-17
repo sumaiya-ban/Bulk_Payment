@@ -32,7 +32,7 @@ const saveOtpType = async (type) => {
     if (!otpRow) return;
 
     await axios.patch(
-      `http://localhost:8081/auth/settings/${otpRow.id}`,
+      `${process.env.REACT_APP_BACKEND_URL}/auth/settings/${otpRow.id}`,
       { setting_value: type },
       { withCredentials: true }
     );
@@ -55,7 +55,7 @@ useEffect(() => {
   const fetchOtpType = async () => {
     try {
       const res = await axios.get(
-        "http://localhost:8081/auth/settings",
+        `${process.env.REACT_APP_BACKEND_URL}/auth/settings`,
         { withCredentials: true }
       );
 
@@ -77,7 +77,7 @@ useEffect(() => {
   const loadSettings = async () => {
     try {
       const res = await axios.get(
-        "http://localhost:8081/auth/settings",
+        `${process.env.REACT_APP_BACKEND_URL}/auth/settings`,
         { withCredentials: true }
       );
 
@@ -124,7 +124,7 @@ useEffect(() => {
       setSavingId(row.id);
 
       const res = await axios.patch(
-        `http://localhost:8081/auth/settings/${row.id}`,
+        `${process.env.REACT_APP_BACKEND_URL}/auth/settings/${row.id}`,
         { setting_value: draftValues[row.id] },
         { withCredentials: true }
       );

@@ -23,7 +23,7 @@ const CreateCustomer = () => {
     try {
       // Send POST request to backend
       const res = await axios.post(
-        "http://localhost:8081/auth/register",
+        `${process.env.REACT_APP_BACKEND_URL}/auth/register`,
         {
           name: form.name,
           email: form.email,

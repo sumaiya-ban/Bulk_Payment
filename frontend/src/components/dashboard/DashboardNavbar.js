@@ -105,7 +105,7 @@ const DashboardNavbar = () => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const name = user.name || "User";
   const profileImageUrl = user.image
-    ? `http://localhost:8081/uploads/profiles/${user.image}`
+    ? `${process.env.REACT_APP_BACKEND_URL}/uploads/profiles/${user.image}`
     : "";
   const isCustomer = user.role === "customer";
   const userId = user.id;
@@ -130,7 +130,7 @@ const DashboardNavbar = () => {
 
     try {
       const res = await axios.get(
-        `http://localhost:8081/auth/notifications/${userId}`
+        `${process.env.REACT_APP_BACKEND_URL}/auth/notifications/${userId}`
       );
 
       const storageKey = `notification-toast-seen-${userId}`;
@@ -247,7 +247,7 @@ const DashboardNavbar = () => {
     }
 
     try {
-      await axios.patch(`http://localhost:8081/auth/notifications/${userId}/read`);
+      await axios.patch(`${process.env.REACT_APP_BACKEND_URL}/auth/notifications/${userId}/read`);
       setNotifications((prev) =>
         prev.map((item) => ({ ...item, is_read: 1 }))
       );

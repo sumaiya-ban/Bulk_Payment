@@ -69,7 +69,7 @@ const Profile = () => {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const res = await axios.get("http://localhost:8081/profile", {
+        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/profile`, {
           withCredentials: true,
         });
 
@@ -129,7 +129,7 @@ const Profile = () => {
       }
 
       const res = await axios.patch(
-        `http://localhost:8081/auth/customer/${storedUser.id}`,
+        `${process.env.REACT_APP_BACKEND_URL}/auth/customer/${storedUser.id}`,
         formData,
         { withCredentials: true }
       );
@@ -257,7 +257,7 @@ const Profile = () => {
                 src={
                   preview ||
                   (profileImage
-                    ? `http://localhost:8081/uploads/profiles/${profileImage}`
+                    ? `${process.env.REACT_APP_BACKEND_URL}/uploads/profiles/${profileImage}`
                     : "https://via.placeholder.com/112?text=Profile")
                 }
                 alt="Profile"
