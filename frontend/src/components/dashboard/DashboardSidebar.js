@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import {
   LayoutDashboard,
   Send,
@@ -8,24 +9,66 @@ import {
   Settings,
   LogOut,
   Zap,
-  CreditCard,
-  Wallet,
-  Menu,
+  ShieldCheck,
+  UserPlus,
+  Globe,
+  MessageCircle,
+  Headphones,
+  Menu 
 } from "lucide-react";
 
-const menuItems = [
-  { titleEn: "Overview", titleBn: "ওভারভিউ", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "customer"] },
-  { titleEn: "Send Payment", titleBn: "পেমেন্ট পাঠান", url: "/dashboard/send", icon: Send, roles: ["admin", "customer"] },
-  { titleEn: "Transactions", titleBn: "লেনদেন", url: "/dashboard/transactions", icon: History, roles: ["admin", "customer"] },
-  { titleEn: "KYC Verification", titleBn: "কেওয়াইসি যাচাই", url: "/dashboard/verification", icon: Send, roles: ["admin", "customer"] },
-  { titleEn: "Recipients", titleBn: "গ্রহীতারা", url: "/dashboard/recipients", icon: Users, roles: ["admin"] },
-  { titleEn: "Create Customer", titleBn: "কাস্টমার তৈরি", url: "/dashboard/customers", icon: Users, roles: ["admin"] },
-  { titleEn: "Setting", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Wallet, roles: ["admin"] },
-   { titleEn: "Landing Page", titleBn: "ল্যান্ডিং পেজ", url: "/dashboard/landing", icon: Wallet, roles: ["admin"] },
-   { titleEn: "Message Request", titleBn: "Message Request", url: "/dashboard/message-request", icon: Wallet, roles: ["admin"] },
-    { titleEn: "Support Chat", titleBn: "Support Chat", url: "/dashboard/support-chat", icon: Wallet, roles: ["admin", "customer"] },
+const menuGroups = [
+  {
+    titleEn: "Dashboard",
+    titleBn: "ড্যাশবোর্ড",
+    icon: LayoutDashboard,
+    roles: ["admin", "customer"],
+    children: [
+      { titleEn: "Overview", titleBn: "ওভারভিউ", url: "/dashboard", icon: LayoutDashboard },
+      { titleEn: "Transactions", titleBn: "লেনদেন", url: "/dashboard/transactions", icon: History },
+    ],
+  },
+  {
+    titleEn: "Payments",
+    titleBn: "পেমেন্ট",
+    icon: Send,
+    roles: ["admin", "customer"],
+    children: [
+      { titleEn: "Send Payment", titleBn: "পেমেন্ট পাঠান", url: "/dashboard/send", icon: Send },
+      { titleEn: "Recipients", titleBn: "গ্রহীতারা", url: "/dashboard/recipients", icon: Users, roles: ["admin"] },
+    ],
+  },
+  {
+    titleEn: "Verification",
+    titleBn: "যাচাই",
+    icon: ShieldCheck,
+    roles: ["admin", "customer"],
+    children: [
+      { titleEn: "KYC Verification", titleBn: "কেওয়াইসি যাচাই", url: "/dashboard/verification", icon: ShieldCheck },
+    ],
+  },
+  {
+    titleEn: "Management",
+    titleBn: "ম্যানেজমেন্ট",
+    icon: Settings,
+    roles: ["admin"],
+    children: [
+      { titleEn: "Create Customer", titleBn: "কাস্টমার তৈরি", url: "/dashboard/customers", icon: UserPlus },
+      { titleEn: "Settings", titleBn: "সেটিংস", url: "/dashboard/setting", icon: Settings },
+      { titleEn: "Landing Page", titleBn: "ল্যান্ডিং পেজ", url: "/dashboard/landing", icon: Globe },
+    ],
+  },
+  {
+    titleEn: "Support",
+    titleBn: "সাপোর্ট",
+    icon: MessageCircle,
+    roles: ["admin", "customer"],
+    children: [
+      { titleEn: "Message Request", titleBn: "Message Request", url: "/dashboard/message-request", icon: MessageCircle, roles: ["admin"] },
+      { titleEn: "Support Chat", titleBn: "Support Chat", url: "/dashboard/support-chat", icon: Headphones },
+    ],
+  },
 ];
-
 const financeItems = [
   // { titleEn: "Cards", titleBn: "কার্ড", url: "/dashboard/cards", icon: CreditCard, roles: ["admin", "customer"] },
   // { titleEn: "Wallet", titleBn: "ওয়ালেট", url: "/dashboard/wallet", icon: Wallet, roles: ["admin", "customer"] },
@@ -80,14 +123,21 @@ useEffect(() => {
     }
   };
 
-  const filteredMain = menuItems.filter(item => role && item.roles.includes(role));
+  // const filteredMain = menuItems.filter(item => role && item.roles.includes(role));
   const filteredFinance = financeItems.filter(item => role && item.roles.includes(role));
   const currentText = sidebarText[language]; // now admin sees language changes too
   const getLabel = item => (language === "bn" ? item.titleBn : item.titleEn);
 
-  const menuClass = "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-green-200 text-black transition-colors";
+  const menuClass =
+  "flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-green-200 text-green-900 transition-all";
   const activeClass = "bg-sidebar-active text-white";
-
+const [openMenus, setOpenMenus] = useState({});
+const toggleMenu = (title) => {
+  setOpenMenus((prev) => ({
+    ...prev,
+    [title]: !prev[title],
+  }));
+};
   return (
     <>
       {/* Mobile Button */}
@@ -118,19 +168,91 @@ useEffect(() => {
 
           {/* MAIN */}
           <p className={`text-xs text-green-800 px-4 mb-2 ${collapsed && "hidden"}`}>{currentText.main}</p>
-          {filteredMain.map(item => {
+         {menuGroups.map((group) => {
+  if (!group.roles.includes(role)) return null;
+
+  const isOpen = openMenus[group.titleEn];
+
+  return (
+    <div key={group.titleEn} className="mb-2">
+      
+      {/* HEADER (Department Style) */}
+      {!collapsed && (
+        <p className="text-xs text-green-900 px-3 mt-3 mb-1 uppercase tracking-wide">
+          {language === "bn" ? group.titleBn : group.titleEn}
+        </p>
+      )}
+
+      {/* MAIN MENU BUTTON */}
+     <div
+  onClick={() => toggleMenu(group.titleEn)}
+  className="flex items-center justify-between px-3 py-2 cursor-pointer rounded-xl hover:bg-green-200"
+>
+  {/* LEFT SIDE */}
+  <div className="flex items-center gap-3">
+    <div className="w-10 h-10 flex items-center justify-center rounded-full bg-green-300 text-green-900">
+      <group.icon size={18} />
+    </div>
+
+    {!collapsed && (
+      <span className="text-sm font-medium text-green-900">
+        {language === "bn" ? group.titleBn : group.titleEn}
+      </span>
+    )}
+  </div>
+
+  {/* RIGHT SIDE (DROPDOWN ICON ALWAYS VISIBLE) */}
+  <div className="flex items-center">
+    <ChevronDown
+      size={18}
+      className={`text-green-900 transition-transform duration-300 ${
+        openMenus[group.titleEn] ? "rotate-180" : ""
+      }`}
+    />
+  </div>
+</div>
+
+      {/* SUBMENU */}
+      {isOpen && (
+        <div className="ml-4 mt-1 space-y-1">
+          {group.children.map((item) => {
+            if (item.roles && !item.roles.includes(role)) return null;
+
             const Icon = item.icon;
+
             return (
               <NavLink
                 key={item.titleEn}
                 to={item.url}
-                className={`${menuClass} ${location.pathname === item.url ? activeClass : ""}`}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                  location.pathname === item.url
+                    ? "bg-green-400 text-green-900 font-semibold"
+                    : "hover:bg-green-100"
+                }`}
               >
-                <Icon size={18} />
-                {!collapsed && <span>{getLabel(item)}</span>}
+                <div
+                  className={`w-8 h-8 flex items-center justify-center rounded-full ${
+                    location.pathname === item.url
+                      ? "bg-green-600 text-white"
+                      : "bg-green-200 text-green-800"
+                  }`}
+                >
+                  <Icon size={16} />
+                </div>
+
+                {!collapsed && (
+                  <span className="text-sm text-green-900">
+                    {language === "bn" ? item.titleBn : item.titleEn}
+                  </span>
+                )}
               </NavLink>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+})}
 
          
         </div>

@@ -2,8 +2,29 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { ArrowRight, Shield, Globe, Zap } from "lucide-react";
 
+const defaultHero = {
+  badge_text: "Trusted by 10,000+ businesses",
+  title: "Send Bulk Payments",
+  highlight_text: "Instantly",
+  description: "Process thousands of payments in a single click.",
+  primary_button_text: "Start Free Trial",
+  primary_button_link: "/register",
+  secondary_button_text: "Contact Us",
+  secondary_button_link: "/#contact",
+  stat1_value: "10K+",
+  stat1_label: "Businesses",
+  stat2_value: "99.9%",
+  stat2_label: "Uptime",
+  stat3_value: "24/7",
+  stat3_label: "Support",
+  card_amount: "$25,000",
+  card_recipients: "1,240 recipients",
+  card_status: "Completed",
+  card_verified: "Verified",
+};
+
 const HeroSection = () => {
-  const [hero, setHero] = useState(null);
+  const [hero, setHero] = useState(defaultHero);
 
   useEffect(() => {
     fetchHero();
@@ -12,13 +33,11 @@ const HeroSection = () => {
   const fetchHero = async () => {
     try {
       const res = await axios.get("http://localhost:8081/api/hero");
-      setHero(res.data);
+      setHero((currentHero) => res.data || currentHero);
     } catch (err) {
       console.log("Hero fetch error:", err);
     }
   };
-
-  if (!hero) return <div>Loading...</div>;
 
   return (
     <section

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import CustomerKYCVerification from "./CustomerKYCVerification";
-
+import { FileText, CheckCircle, Clock, XCircle } from "lucide-react";
 const statusStyles = {
   approved: "bg-green-100 text-green-700",
   pending: "bg-yellow-100 text-yellow-700",
@@ -93,10 +93,71 @@ const paginatedRows = adminRows.slice(
       setActionLoading(false);
     }
   };
-
+const totalKyc = adminRows.length;
+const approvedKyc = adminRows.filter(r => r.status === "approved").length;
+const pendingKyc = adminRows.filter(r => r.status === "pending").length;
+const rejectedKyc = adminRows.filter(r => r.status === "rejected").length;
   if (isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+        {/* HEADER */}
+<div className="flex items-center justify-between mb-6">
+  <div>
+    <h1 className="text-2xl font-bold text-gray-800">KYC Verification</h1>
+    <p className="text-sm text-gray-500">
+      Review and manage customer identity verification requests
+    </p>
+  </div>
+</div>
+
+{/* STATS CARDS */}
+<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  
+  {/* TOTAL */}
+  <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition p-4 flex items-center gap-4">
+    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+      <FileText className="text-blue-600" />
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Total</p>
+      <h2 className="text-xl font-bold text-gray-800">{totalKyc}</h2>
+    </div>
+  </div>
+
+  {/* APPROVED */}
+  <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition p-4 flex items-center gap-4">
+    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+      <CheckCircle className="text-green-600" />
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Approved</p>
+      <h2 className="text-xl font-bold text-gray-800">{approvedKyc}</h2>
+    </div>
+  </div>
+
+  {/* PENDING */}
+  <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition p-4 flex items-center gap-4">
+    <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+      <Clock className="text-yellow-600" />
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Pending</p>
+      <h2 className="text-xl font-bold text-gray-800">{pendingKyc}</h2>
+    </div>
+  </div>
+
+  {/* REJECTED */}
+  <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition p-4 flex items-center gap-4">
+    <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+      <XCircle className="text-red-600" />
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Rejected</p>
+      <h2 className="text-xl font-bold text-gray-800">{rejectedKyc}</h2>
+    </div>
+  </div>
+
+</div>
         <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">

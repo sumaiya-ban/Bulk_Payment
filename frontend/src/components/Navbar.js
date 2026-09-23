@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 const navLinks = [
-  { label: "Home", href: "#home" },
-  { label: "Service", href: "#services" },
-  { label: "Transaction", href: "#transaction" },
-  { label: "Partner", href: "#partners" },
-  { label: "Contact", href: "#contact" },
+  { label: "Home", href: "/#home" },
+  { label: "Service", href: "/#services" },
+  { label: "Transaction", href: "/#transaction" },
+  { label: "Partner", href: "/#partners" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 const Navbar = () => {
@@ -17,7 +17,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
         
         {/* Logo */}
-        <a href="#home" className="flex items-center gap-2 text-xl font-bold text-blue-600">
+        <a href="/#home" className="flex items-center gap-2 text-xl font-bold text-blue-600">
            BulkPay
         </a>
 
@@ -38,7 +38,7 @@ const Navbar = () => {
         {/* Desktop Button */}
         <div className="flex gap-4">
            <a
-          href="#contact"
+          href="/#contact"
           className="hidden md:inline-flex items-center px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           Get Started
